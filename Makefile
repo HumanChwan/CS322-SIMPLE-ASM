@@ -1,5 +1,5 @@
 CC=gcc
-CCFLAGS=-std=c99 -pedantic -Wall
+CCFLAGS=-std=c89 -pedantic -Wall
 
 all: asm emu
 
