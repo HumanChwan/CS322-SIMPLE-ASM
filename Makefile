@@ -1,8 +1,10 @@
+CC=gcc
+CCFLAGS=-std=c99 -pedantic -Wall
 
 all: asm emu
 
 asm: asm.c
-	gcc --std=c99 -pedantic -Wall asm.c -o asm
+	$(CC) $(CCFLAGS) asm.c -o asm
 
 emu: emu.c
-	gcc --std=c99 -pedantic -Wall emu.c -o emu
+	$(CC) $(CCFLAGS) emu.c -o emu
