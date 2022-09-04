@@ -1,10 +1,15 @@
 CC=gcc
-CCFLAGS=-std=c89 -pedantic -Wall
+CFLAGS=-std=c89 -pedantic -Wall -W
 
-all: asm emu
+BIN=bin/asm bin/emu
 
-asm: asm.c
-	$(CC) $(CCFLAGS) asm.c -o asm
+all: $(BIN)
 
-emu: emu.c
-	$(CC) $(CCFLAGS) emu.c -o emu
+bin/asm: src/asm.c
+	$(CC) $(CFLAGS) src/asm.c -o bin/asm
+
+bin/emu: src/emu.c
+	$(CC) $(CFLAGS) src/emu.c -o bin/emu
+
+clean:
+	rm -f bin/asm bin/emu  
