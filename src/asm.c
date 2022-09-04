@@ -22,6 +22,14 @@
 #define true 1
 #define false 0
 
+#define ERROR(...)                                                             \
+    fprintf(stderr, "\033[0;33mERROR: \033[0;0m");                             \
+    fprintf(stderr, __VA_ARGS__);
+
+#define WARNING(...)                                                           \
+    fprintf(stderr, "\033[0;31mWARNING: \033[0;0m");                           \
+    fprintf(stderr, __VA_ARGS__);
+
 void print_usage() {
     fprintf(stderr, "Usage: asm [OPTIONS]... [FILE].asm\n");
     fprintf(stderr, "Try `asm -h` for more information\n");
@@ -45,10 +53,9 @@ void trim_whitespace(char *str) {
         return;
 
     len = strlen(str);
-    while (i < len && (str[i] == ' ' || str[i] == '\t'))
+    while (i < len && isspace(str[i]))
         i++;
-    while (i < len - j - 1 &&
-           (str[len - 1 - j] == ' ' || str[len - 1 - j] == '\t'))
+    while (i < len - j - 1 && isspace(str[len - 1 - j]))
         j++;
 
     if (len - j - i == 0) {
@@ -117,13 +124,13 @@ bool check_if_file_exists_and_set(OPTIONS *opt, char *arg) {
 
     strcpy(opt->asm_filename, arg);
 
-    strcpy(opt->log_filename, arg);
+    strncpy(opt->log_filename, arg, len - 4);
     strcpy(opt->log_filename + len - 4, ".log");
 
-    strcpy(opt->list_filename, arg);
+    strncpy(opt->list_filename, arg, len - 4);
     strcpy(opt->list_filename + len - 4, ".l");
 
-    strcpy(opt->obj_filename, arg);
+    strncpy(opt->obj_filename, arg, len - 4);
     strcpy(opt->obj_filename + len - 4, ".o");
 
     return true;
@@ -143,14 +150,21 @@ bool valid_label_name(char *label) {
 }
 
 bool list_and_log(OPTIONS *opt, bool first_pass) {
-    FILE *fp;
-    char buffer[100];
+    FILE *fp, *fp_list, *fp_log, *fp_obj;
+    char buffer[100], code_line[100];
     char *read, *label, *instruction;
 
     char oper[20];
     int operand;
+    int PC = 0;
 
     fp = fopen(opt->asm_filename, "r");
+
+    if (!first_pass) {
+        fp_list = fopen(opt->list_filename, "w");
+        fp_log = fopen(opt->log_filename, "w");
+        fp_obj = fopen(opt->obj_filename, "wb");
+    }
 
     if (fp == NULL) {
         fprintf(stderr, "FATAL ERROR");
@@ -158,26 +172,57 @@ bool list_and_log(OPTIONS *opt, bool first_pass) {
     }
 
     while (fgets(buffer, 100, fp) != NULL) {
+        bool has_label, has_opcode_list;
+        int memory_dump;
+
+        trim_whitespace(buffer);
+        if (strlen(buffer) == 0)
+            continue;
+
         if (buffer[0] == ';')
             continue;
         buffer[strlen(buffer) - 1] = '\0';
         read = strtok(buffer, ";");
         trim_whitespace(read);
 
+        strcpy(code_line, read);
+
+        has_label = (read[strlen(read) - 1] == ':');
+
         label = strtok(read, ":");
         instruction = strtok(NULL, ":");
 
-        if (instruction == NULL)
+        if (instruction == NULL && !has_label)
             instruction = label, label = NULL;
 
-        if (label != NULL && !valid_label_name(label)) {
-            return false;
+        if (label != NULL) {
+            if (!valid_label_name(label)) {
+                if (!first_pass) {
+                    fprintf(fp_log, "%08X\tInvalid label: |%s:|", PC, label);
+                    ERROR("Invalid label at %08X found in format: |%s:|\n", PC,
+                          label);
+                }
+                return false;
+            } else {
+                /* label duplication checks and/or storing label address */
+            }
         }
 
-        trim_whitespace(instruction);
+        /* printing the PC in the listing file */
+        fprintf(fp_list, "%08X ", PC);
+
+        if (instruction != NULL) {
+            trim_whitespace(instruction);
+
+            PC++;
+        }
     }
-    if (first_pass) {
-        printf("first pass");
+
+    fclose(fp);
+    if (!first_pass) {
+        fclose(fp_list);
+        fclose(fp_obj);
+        fclose(fp_log);
     }
 
     return true;
@@ -213,12 +258,8 @@ int main(int argc, char **argv) {
         }
     }
 
-    printf("list:\t%s\n", opt.list_filename);
-    printf("log:\t%s\n", opt.log_filename);
-    printf("obj:\t%s\n", opt.obj_filename);
-    printf("file:\t%s\n", opt.asm_filename);
-
     list_and_log(&opt, true);
+    list_and_log(&opt, false);
 
     destruct(&opt);
     return 0;
