@@ -1,6 +1,5 @@
 CC=gcc
-# CFLAGS=-std=c89 -pedantic -Wall -W
-CFLAGS=-Wall
+CFLAGS=-std=c89 -pedantic -Wall -W
 
 BIN=bin/asm bin/emu
 

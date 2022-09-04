@@ -75,16 +75,10 @@ void initialise(OPTIONS *opt) {
 }
 
 void destruct(OPTIONS *opt) {
-    // int x, y;
-    if (opt->asm_filename != NULL)
-        printf("\t%s", opt->asm_filename), free(opt->asm_filename);
-    // printf("\t%X %X %X", opt->obj_filename, &x, &y);
-    if (opt->obj_filename != NULL)
-        printf("\t%s", opt->obj_filename), free(opt->obj_filename);
-    if (opt->list_filename != NULL)
-        printf("\t%s", opt->list_filename), free(opt->list_filename);
-    if (opt->log_filename != NULL)
-        printf("\t%s", opt->log_filename), free(opt->log_filename);
+    free(opt->asm_filename);
+    free(opt->obj_filename);
+    free(opt->list_filename);
+    free(opt->log_filename);
 }
 
 bool enable_opt(OPTIONS *opt, char *arg) {
