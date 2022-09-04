@@ -1,4 +1,5 @@
 /*
+ *
  * Author:              Chukkala Dinesh
  * Roll No:             2001CS22
  * Web-mail:            chukkala_2001cs22@iitp.ac.in
@@ -9,8 +10,10 @@
  * I hereby confirm that this assignment and the work presented in it is
  * entirely my own. I agree that the present work may be verified with
  * an anti-plagiarism software.
+ *
  */
 
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -35,20 +38,56 @@ void print_help() {
     printf("\t-h\t\tPrint this help\n");
 }
 
+void trim_whitespace(char *str) {
+    int len, i = 0, j = 0, k = 0;
+    char *cpy;
+    if (str == NULL)
+        return;
+
+    len = strlen(str);
+    while (i < len && (str[i] == ' ' || str[i] == '\t'))
+        i++;
+    while (i < len - j - 1 &&
+           (str[len - 1 - j] == ' ' || str[len - 1 - j] == '\t'))
+        j++;
+
+    if (len - j - i == 0) {
+        *str = '\0';
+        return;
+    }
+
+    cpy = malloc(len - i - j + 1);
+    for (k = 0; k < len - j - i; ++k)
+        cpy[k] = str[i + k];
+    cpy[k] = '\0';
+
+    strcpy(str, cpy);
+    free(cpy);
+}
+
 typedef struct {
     bool log_file, list_file, obj_file;
-    char* base_file_name;
+    char *asm_filename, *log_filename, *list_filename, *obj_filename;
 } OPTIONS;
 
-void initialise(OPTIONS* opt) {
+void initialise(OPTIONS *opt) {
     opt->list_file = opt->log_file = opt->obj_file = true;
 }
 
-void destruct(OPTIONS* opt) {
-    free(opt->base_file_name);
+void destruct(OPTIONS *opt) {
+    // int x, y;
+    if (opt->asm_filename != NULL)
+        printf("\t%s", opt->asm_filename), free(opt->asm_filename);
+    // printf("\t%X %X %X", opt->obj_filename, &x, &y);
+    if (opt->obj_filename != NULL)
+        printf("\t%s", opt->obj_filename), free(opt->obj_filename);
+    if (opt->list_filename != NULL)
+        printf("\t%s", opt->list_filename), free(opt->list_filename);
+    if (opt->log_filename != NULL)
+        printf("\t%s", opt->log_filename), free(opt->log_filename);
 }
 
-bool enable_opt(OPTIONS* opt, char* arg) {
+bool enable_opt(OPTIONS *opt, char *arg) {
     if (strcmp(arg, "-l") == 0)
         opt->list_file = false;
     else if (strcmp(arg, "-o") == 0)
@@ -60,28 +99,97 @@ bool enable_opt(OPTIONS* opt, char* arg) {
     return true;
 }
 
-bool check_if_file_exists_and_set(OPTIONS* opt, char* arg) {
-    FILE* fp = fopen(arg, "r");
-    int i, len;
+bool check_if_file_exists_and_set(OPTIONS *opt, char *arg) {
+    FILE *fp = fopen(arg, "r");
+    int len;
 
     if (fp == NULL)
         return false;
 
     fclose(fp);
+
     len = strlen(arg);
     if (len < 4)
         return false;
 
-    opt->base_file_name = calloc(sizeof(char), len - 3);
+    if (strcmp(arg + len - 4, ".asm") != 0)
+        return false;
 
-    for (i = 0; i < len - 4; ++i)
-        opt->base_file_name[i] = arg[i];
-    opt->base_file_name[i] = '\0';
+    opt->asm_filename = malloc(sizeof(char) * (len + 1));
+    opt->log_filename = malloc(sizeof(char) * (len + 1));
+
+    opt->list_filename = malloc(sizeof(char) * (len - 1));
+    opt->obj_filename = malloc(sizeof(char) * (len - 1));
+
+    strcpy(opt->asm_filename, arg);
+
+    strcpy(opt->log_filename, arg);
+    strcpy(opt->log_filename + len - 4, ".log");
+
+    strcpy(opt->list_filename, arg);
+    strcpy(opt->list_filename + len - 4, ".l");
+
+    strcpy(opt->obj_filename, arg);
+    strcpy(opt->obj_filename + len - 4, ".o");
 
     return true;
 }
 
-int main(int argc, char** argv) {
+bool valid_label_name(char *label) {
+    int len = strlen(label);
+    int i = 1;
+
+    if (!isalpha(label[0]) && label[0] != '_')
+        return false;
+
+    for (i = 1; i < len; ++i)
+        if (!isalnum(label[i]) && label[i] != '_')
+            return false;
+    return true;
+}
+
+bool list_and_log(OPTIONS *opt, bool first_pass) {
+    FILE *fp;
+    char buffer[100];
+    char *read, *label, *instruction;
+
+    char oper[20];
+    int operand;
+
+    fp = fopen(opt->asm_filename, "r");
+
+    if (fp == NULL) {
+        fprintf(stderr, "FATAL ERROR");
+        exit(-1);
+    }
+
+    while (fgets(buffer, 100, fp) != NULL) {
+        if (buffer[0] == ';')
+            continue;
+        buffer[strlen(buffer) - 1] = '\0';
+        read = strtok(buffer, ";");
+        trim_whitespace(read);
+
+        label = strtok(read, ":");
+        instruction = strtok(NULL, ":");
+
+        if (instruction == NULL)
+            instruction = label, label = NULL;
+
+        if (label != NULL && !valid_label_name(label)) {
+            return false;
+        }
+
+        trim_whitespace(instruction);
+    }
+    if (first_pass) {
+        printf("first pass");
+    }
+
+    return true;
+}
+
+int main(int argc, char **argv) {
     OPTIONS opt;
     initialise(&opt);
 
@@ -111,7 +219,12 @@ int main(int argc, char** argv) {
         }
     }
 
-    https://github.com/HumanChwan/CS322-SIMPLE-ASM
+    printf("list:\t%s\n", opt.list_filename);
+    printf("log:\t%s\n", opt.log_filename);
+    printf("obj:\t%s\n", opt.obj_filename);
+    printf("file:\t%s\n", opt.asm_filename);
+
+    list_and_log(&opt, true);
 
     destruct(&opt);
     return 0;
