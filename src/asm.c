@@ -23,11 +23,15 @@
 #define false 0
 
 #define ERROR(...)                                                                                 \
-    fprintf(stderr, "\033[0;31mERROR: \033[0;0m");                                                 \
+    fprintf(stderr, "\033[0;31m[ERROR]: \033[0;0m");                                               \
     fprintf(stderr, __VA_ARGS__);
 
 #define WARNING(...)                                                                               \
-    fprintf(stderr, "\033[0;33mWARNING: \033[0;0m");                                               \
+    fprintf(stderr, "\033[0;33m[WARNING]: \033[0;0m");                                             \
+    fprintf(stderr, __VA_ARGS__);
+
+#define DEBUG(...)                                                                                 \
+    fprintf(stderr, "\033[0;34m[DEBUG]: \033[0;0m");                                               \
     fprintf(stderr, __VA_ARGS__);
 
 typedef struct
@@ -211,6 +215,58 @@ void convert_space_words_to_space(char *str)
     strcpy(str, converted);
 }
 
+bool has_character(const char *str, char character)
+{
+    int i;
+    for (i = 0; str[i] != '\0'; ++i)
+        if (str[i] == character)
+            return true;
+
+    return false;
+}
+
+bool is_valid_number(const char *str)
+{
+    int i = 0, type = 0, len;
+    /**
+     * @type:
+     * 0: Decimal (base 10)
+     * 1: Octal (base 8)
+     * 2: Hexadecimal (base 16)
+     */
+    if (str[0] == '-' || str[0] == '+')
+        i++;
+
+    len = strlen(str);
+    if (len == i)
+        return false;
+
+    if (str[i] == '0')
+    {
+        i++;
+        if (i < len && str[i + 1] == 'x')
+            i++, type = 2;
+        else
+            type = 1;
+    }
+    else
+        type = 0;
+
+    if (i == len)
+        return false;
+
+    for (; str[i] != '\0'; ++i)
+    {
+        if (type == 0 && !isdigit(str[i]))
+            return false;
+        else if (type == 1 && !('0' <= str[i] && str[i] < '8'))
+            return false;
+        else if (type == 2 && !isxdigit(str[i]))
+            return false;
+    }
+    return true;
+}
+
 /**
  * @brief: function to get mnemonic from ISA
  *
@@ -299,8 +355,13 @@ bool check_if_file_exists_and_set(OPTIONS *opt, char *arg)
 
 bool valid_label_name(char *label)
 {
-    int len = strlen(label);
+    int len;
     int i = 1;
+
+    if (label == NULL)
+        return false;
+
+    len = strlen(label);
 
     if (!isalpha(label[0]) && label[0] != '_')
         return false;
@@ -311,7 +372,7 @@ bool valid_label_name(char *label)
     return true;
 }
 
-bool list_and_log_and_form_obj(OPTIONS *opt, LABEL_LIST *label_list, bool first_pass)
+void list_and_log_and_form_obj(OPTIONS *opt, LABEL_LIST *label_list, bool first_pass)
 {
     FILE *fp, *fp_list, *fp_log, *fp_obj;
     char buffer[100], code_line[100];
@@ -319,42 +380,42 @@ bool list_and_log_and_form_obj(OPTIONS *opt, LABEL_LIST *label_list, bool first_
 
     MNEMONIC *oper;
     char *oper_as_str, *operand_as_str;
-    int operand;
-    int PC = 0;
+    int PC = 0, line_number = 0;
 
     fp = fopen(opt->asm_filename, "r");
 
-    if (!first_pass)
-    {
-        fp_list = fopen(opt->list_filename, "w");
-        fp_log = fopen(opt->log_filename, "w");
-        fp_obj = fopen(opt->obj_filename, "wb");
-    }
+    fp_list = fopen(opt->list_filename, "w");
+    fp_log = fopen(opt->log_filename, "w");
+    fp_obj = fopen(opt->obj_filename, "wb");
 
     if (fp == NULL)
     {
-        fprintf(stderr, "FATAL ERROR");
+        ERROR("FATAL ERROR");
         exit(-1);
     }
 
     while (fgets(buffer, 100, fp) != NULL)
     {
-        bool has_label, has_opcode_list;
-        int memory_dump;
+        bool has_label;
+        int memory_dump, len;
 
-        trim_whitespace(buffer);
-        if (strlen(buffer) == 0)
+        line_number++;
+
+        if (buffer[0] == '\0' || buffer[0] == '\n')
             continue;
-
         if (buffer[0] == ';')
             continue;
-        buffer[strlen(buffer) - 1] = '\0';
+
+        len = strlen(buffer);
+        if (buffer[len - 1] == '\n')
+            buffer[len - 1] = '\0';
+
         read = strtok(buffer, ";");
         trim_whitespace(read);
 
         strcpy(code_line, read);
 
-        has_label = (read[strlen(read) - 1] == ':');
+        has_label = has_character(read, ':');
 
         if (has_label)
         {
@@ -362,24 +423,28 @@ bool list_and_log_and_form_obj(OPTIONS *opt, LABEL_LIST *label_list, bool first_
             instruction = strtok(NULL, ":");
         }
         else
-            instruction = read;
+            instruction = read, label = NULL;
 
         if (label != NULL)
         {
             if (!valid_label_name(label))
             {
-                fprintf(fp_log, "%08X\tInvalid label: |%s:|", PC, label);
-                ERROR("Invalid label at %08X found in format: |%s:|\n", PC, label);
-                return false;
+                fprintf(fp_log, "%d\t; Invalid label: |%s:|\n", line_number, label);
+                ERROR("%d|\tInvalid label found in format: |%s:|\n", line_number, label);
+                ERROR("Find out more details in file: %s\n\n", opt->log_filename);
+                continue;
             }
-            else
+            else if (first_pass)
             {
                 /* label duplication checks and/or storing label address */
                 LABEL *label_data = search_for_label(label_list, label);
                 if (label_data != NULL)
                 {
                     /* ERROR: found duplicate label identifier */
-                    return false;
+                    fprintf(fp_log, "%d\t; Found Duplicate labels: %s\n", PC, label);
+                    ERROR("%d|\tFound Duplicate label: \"%s\"\n", line_number, label);
+                    ERROR("Find out more details in file: %s\n\n", opt->log_filename);
+                    continue;
                 }
 
                 add_new_label(label_list, label, PC);
@@ -388,7 +453,11 @@ bool list_and_log_and_form_obj(OPTIONS *opt, LABEL_LIST *label_list, bool first_
 
         /* If first pass then skipping instruction checking and listing */
         if (first_pass)
+        {
+            if (instruction != NULL)
+                PC++;
             continue;
+        }
 
         /* Following area of code is executed only in the second pass */
 
@@ -399,9 +468,9 @@ bool list_and_log_and_form_obj(OPTIONS *opt, LABEL_LIST *label_list, bool first_
         {
             trim_whitespace(instruction);
 
-            /* format of instruction: /[\w\s]*\w/ */
+            /* format of instruction: /\w[\w\s]*\w/ */
             convert_space_words_to_space(instruction);
-            /* format of instruction: /(\w+ )*\w/ */
+            /* format of instruction: /\w(\w+ )*\w/ */
 
             oper_as_str = strtok(instruction, " ");
             operand_as_str = strtok(NULL, " ");
@@ -410,39 +479,95 @@ bool list_and_log_and_form_obj(OPTIONS *opt, LABEL_LIST *label_list, bool first_
             if (oper == NULL)
             {
                 /* ERROR: mnemonic not found */
-                return false;
+                fprintf(fp_log, "%d\t; Mnemonic not found: %s\n", line_number, oper_as_str);
+                ERROR("%d|\tMnemonic not found: %s\n", line_number, oper_as_str);
+                ERROR("Find out more details in file: %s\n\n", opt->log_filename);
+                continue;
             }
 
             if (!oper->has_operand && operand_as_str != NULL)
             {
                 /* ERROR: found operand for isolated mnemonic */
-                return false;
+                fprintf(fp_log, "%d\t; Found operand(s) for an isolated mnemonic: %s\n",
+                        line_number, code_line);
+                ERROR("%d|\tFound operand for isolated mnemonics: %s %s\n", line_number,
+                      oper_as_str, operand_as_str);
+                ERROR("Find out more details in file: %s\n\n", opt->log_filename);
+                continue;
             }
             else if (oper->has_operand && operand_as_str == NULL)
             {
                 /* ERROR: Expected operand, but did not find any */
-                return false;
+                fprintf(fp_log, "%d\t; Expected an operand, but could not find any: %s\n",
+                        line_number, code_line);
+                ERROR("%d|\tExpected an operand for mnemonic: %s\n", line_number, oper->OPER);
+                ERROR("Find out more details in file: %s\n\n", opt->log_filename);
+                continue;
             }
 
+            /**
+             * TODO: DATA and SET settings
+             * TODO: 0x- and 0- operands
+             */
+
+            memory_dump = oper->OPCODE;
+
+            if (oper->has_operand)
+            {
+                LABEL *label = search_for_label(label_list, operand_as_str);
+                if (oper->relative_calc)
+                {
+                    int offset;
+                    if (label == NULL)
+                    {
+                        /* undefined reference to a label */
+                        fprintf(fp_log, "%d\t; Could not find any label: %s\n", line_number,
+                                operand_as_str);
+                        ERROR("%d|\tNo such label as: %s\n", line_number, operand_as_str);
+                        ERROR("Find out more details in file: %s\n\n", opt->log_filename);
+                        continue;
+                    }
+                    offset = ((label->program_address - PC - 1) << 8);
+                    memory_dump += offset;
+                }
+                else
+                {
+                    int operand;
+                    if (!label && !is_valid_number(operand_as_str))
+                    {
+                        /* Non integer operand found where integer expected */
+                        fprintf(fp_log, "%d\t; Integer argument was expected: %s\n", line_number,
+                                operand_as_str);
+                        ERROR("%d|\tInteger not found: %s\n", line_number, operand_as_str);
+                        ERROR("Find out more details in file: %s\n\n", opt->log_filename);
+                        continue;
+                    }
+                    if (label)
+                        operand = label->program_address;
+                    else
+                        /* Auto detect hex, octal or decimal */
+                        operand = strtol(operand_as_str, NULL, 0);
+
+                    memory_dump += (operand << 8);
+                }
+            }
+
+            fprintf(fp_list, "%08X ", memory_dump);
+            fwrite(&memory_dump, 4, 1, fp_obj);
+            fprintf(fp_list, "%s\n", code_line);
             PC++;
         }
         else
         {
             fprintf(fp_list, "%*c", 9, ' ');
+            fprintf(fp_list, "%s\n", code_line);
         }
-
-        fprintf(fp_list, "%s", code_line);
     }
 
     fclose(fp);
-    if (!first_pass)
-    {
-        fclose(fp_list);
-        fclose(fp_obj);
-        fclose(fp_log);
-    }
-
-    return true;
+    fclose(fp_list);
+    fclose(fp_obj);
+    fclose(fp_log);
 }
 
 void destroy_and_exit(OPTIONS *opt, LABEL_LIST *list, int status)
@@ -498,11 +623,8 @@ int main(int argc, char **argv)
     }
 
     /* passing through the procedure to read and form object/listing/log file twice */
-    if (!list_and_log_and_form_obj(&opt, &label_list, true) ||
-        !list_and_log_and_form_obj(&opt, &label_list, false))
-    {
-        destroy_and_exit(&opt, &label_list, -1);
-    }
+    list_and_log_and_form_obj(&opt, &label_list, true);
+    list_and_log_and_form_obj(&opt, &label_list, false);
 
     destroy_and_exit(&opt, &label_list, 0);
 }

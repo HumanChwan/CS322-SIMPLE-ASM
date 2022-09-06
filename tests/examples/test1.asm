@@ -1,4 +1,17 @@
-label:
+label:   
 
 add
-ldc 45
+ldc 0xA
+adj 
+
+a2sp
+sp2a
+
+LOOP:
+    ldc 4
+    adc 1
+    a2sp
+    ldnl 5
+    br LOOP
+
+
