@@ -22,18 +22,6 @@
 #define true 1
 #define false 0
 
-#define ERROR(...)                                                                                 \
-    fprintf(stderr, "\033[0;31m[ERROR]: \033[0;0m");                                               \
-    fprintf(stderr, __VA_ARGS__);
-
-#define WARNING(...)                                                                               \
-    fprintf(stderr, "\033[0;33m[WARNING]: \033[0;0m");                                             \
-    fprintf(stderr, __VA_ARGS__);
-
-#define DEBUG(...)                                                                                 \
-    fprintf(stderr, "\033[0;34m[DEBUG]: \033[0;0m");                                               \
-    fprintf(stderr, __VA_ARGS__);
-
 typedef struct
 {
     bool log_file, list_file, obj_file;
@@ -48,10 +36,51 @@ typedef struct
     bool relative_calc;
 } MNEMONIC;
 
+typedef enum
+{
+    ER_LABEL,
+    ER_MNEMONIC,
+    ER_INTEGER,
+    ER_MISSING_OPERAND,
+    ER_MORE_OPERAND,
+    ER_BRANCH,
+    ER_UNUSED_LABEL
+} STATUS_CODE;
+
+#define LABEL_ER "Label should of the format (regex): /[a-zA-Z]\\w*/"
+#define MNEMONIC_ER                                                                                \
+    "Mnemonics/isa should follow the given set of instructions. Find out more by `emu "            \
+    "-isa`."
+#define INTEGER_ER                                                                                 \
+    "Integers can be represented in decimal(0-9)[format: /(0|[1-9]\\d*)/, "                        \
+    "hex(0-F)[format: /0x[0-9a-fA-F]+/] or octal(0-7)[format: /0[0-7]+/] format."
+#define MISSING_ER "Was expecting an operand"
+#define MORE_OPERAND_ER "Found more operands, than mnemonic requires"
+#define BRANCH_ER "Unnecessary branching found, offset is 0"
+#define UNUSED_LABEL "Unused label found"
+
+char *LOG_MESSAGES[] = {LABEL_ER,        MNEMONIC_ER, INTEGER_ER,  MISSING_ER,
+                        MORE_OPERAND_ER, BRANCH_ER,   UNUSED_LABEL};
+
+typedef struct STDERR_MESSAGE
+{
+    bool is_error; /* false: warning, true: error */
+    int line_number;
+    STATUS_CODE status_code;
+    char *message;
+    struct STDERR_MESSAGE *NEXT;
+} STDERR_MESSAGE;
+
+typedef struct
+{
+    STDERR_MESSAGE *head, *tail;
+} STDERR_MESSAGE_LIST;
+
 typedef struct
 {
     char *identifier;
     int program_address;
+    bool referenced;
 } LABEL;
 
 typedef struct LABEL_NODE
@@ -76,6 +105,7 @@ LABEL *create_label(const char *label_identifier, int address)
     label->program_address = address;
     label->identifier = malloc(sizeof(char) * (strlen(label_identifier) + 1));
     strcpy(label->identifier, label_identifier);
+    label->referenced = false;
 
     return label;
 }
@@ -99,6 +129,36 @@ void add_new_label(LABEL_LIST *list, const char *label_identifier, int address)
         list->TAIL->NEXT = node;
 
     list->TAIL = node;
+}
+
+void add_new_stderr_message(STDERR_MESSAGE_LIST *list, bool is_error, int line_number,
+                            STATUS_CODE status_code, const char *message)
+{
+    STDERR_MESSAGE *node = malloc(sizeof(STDERR_MESSAGE));
+    node->is_error = is_error;
+    node->line_number = line_number;
+    node->message = malloc(strlen(message) + 1);
+    node->status_code = status_code;
+    strcpy(node->message, message);
+    node->NEXT = NULL;
+
+    if (!list->head)
+        list->head = node;
+    else
+        list->tail->NEXT = node;
+
+    list->tail = node;
+}
+
+void destruct_stderr_message(STDERR_MESSAGE_LIST *list)
+{
+    STDERR_MESSAGE *iter = list->head;
+    while (iter != NULL)
+    {
+        STDERR_MESSAGE *temp = iter;
+        iter = iter->NEXT;
+        free(temp);
+    }
 }
 
 /**
@@ -142,7 +202,7 @@ MNEMONIC mnemonics[] = {
     {"shl", 8, false, false},     {"shr", 9, false, false},   {"adj", 10, true, false},
     {"a2sp", 11, false, false},   {"sp2a", 12, false, false}, {"call", 13, true, true},
     {"return", 14, false, false}, {"brz", 15, true, true},    {"brlz", 16, true, true},
-    {"br", 17, true, true},       {"HALT", 18, false, false}, {"SET", 19, true, false},
+    {"br", 17, true, true},       {"HALT", 18, false, false}, {"SET", -2, true, false},
 };
 const int MNEMONIC_TYPES = 20;
 
@@ -234,6 +294,10 @@ bool is_valid_number(const char *str)
      * 1: Octal (base 8)
      * 2: Hexadecimal (base 16)
      */
+    /* Special Case: 0 */
+    if (strcmp(str, "0") == 0)
+        return true;
+
     if (str[0] == '-' || str[0] == '+')
         i++;
 
@@ -244,7 +308,7 @@ bool is_valid_number(const char *str)
     if (str[i] == '0')
     {
         i++;
-        if (i < len && str[i + 1] == 'x')
+        if (i < len && str[i] == 'x')
             i++, type = 2;
         else
             type = 1;
@@ -289,6 +353,17 @@ void initialise(OPTIONS *opt)
 {
     opt->list_file = opt->log_file = opt->obj_file = true;
     opt->asm_filename = opt->list_filename = opt->log_filename = opt->obj_filename = NULL;
+}
+
+void initialise_log_and_list_file(OPTIONS *opt)
+{
+    FILE *fp_list = fopen(opt->list_filename, "w"), *fp_log = fopen(opt->log_filename, "w");
+
+    fprintf(fp_list, "; This is the Listing file for: %s\n", opt->asm_filename);
+    fprintf(fp_log, "; This is the Log file for: %s\n", opt->asm_filename);
+
+    fclose(fp_list);
+    fclose(fp_log);
 }
 
 void destruct(OPTIONS *opt)
@@ -372,7 +447,8 @@ bool valid_label_name(char *label)
     return true;
 }
 
-void list_and_log_and_form_obj(OPTIONS *opt, LABEL_LIST *label_list, bool first_pass)
+void list_and_form_obj(OPTIONS *opt, LABEL_LIST *label_list, STDERR_MESSAGE_LIST *stderr_list,
+                       bool first_pass)
 {
     FILE *fp, *fp_list, *fp_log, *fp_obj;
     char buffer[100], code_line[100];
@@ -384,13 +460,13 @@ void list_and_log_and_form_obj(OPTIONS *opt, LABEL_LIST *label_list, bool first_
 
     fp = fopen(opt->asm_filename, "r");
 
-    fp_list = fopen(opt->list_filename, "w");
-    fp_log = fopen(opt->log_filename, "w");
+    fp_list = fopen(opt->list_filename, "a");
+    fp_log = fopen(opt->log_filename, "a");
     fp_obj = fopen(opt->obj_filename, "wb");
 
     if (fp == NULL)
     {
-        ERROR("FATAL ERROR");
+        fprintf(stderr, "\033[0;31m[ERROR]: FATAL ERROR\033[0;0m");
         exit(-1);
     }
 
@@ -429,25 +505,59 @@ void list_and_log_and_form_obj(OPTIONS *opt, LABEL_LIST *label_list, bool first_
         {
             if (!valid_label_name(label))
             {
-                fprintf(fp_log, "%d\t; Invalid label: |%s:|\n", line_number, label);
-                ERROR("%d|\tInvalid label found in format: |%s:|\n", line_number, label);
-                ERROR("Find out more details in file: %s\n\n", opt->log_filename);
+                /* ERROR: Invalid label */
+                char message[100] = {'\0'};
+                strcat(message, "Invalid label: ");
+                strcat(message, label);
+                add_new_stderr_message(stderr_list, true, line_number, ER_LABEL, message);
                 continue;
             }
             else if (first_pass)
             {
                 /* label duplication checks and/or storing label address */
                 LABEL *label_data = search_for_label(label_list, label);
+                int val = PC;
                 if (label_data != NULL)
                 {
                     /* ERROR: found duplicate label identifier */
-                    fprintf(fp_log, "%d\t; Found Duplicate labels: %s\n", PC, label);
-                    ERROR("%d|\tFound Duplicate label: \"%s\"\n", line_number, label);
-                    ERROR("Find out more details in file: %s\n\n", opt->log_filename);
+                    char message[100] = {'\0'};
+                    strcat(message, "Found Duplicate labels: ");
+                    strcat(message, label);
+                    add_new_stderr_message(stderr_list, true, line_number, ER_LABEL, message);
                     continue;
                 }
 
-                add_new_label(label_list, label, PC);
+                /* Implementation for SET instruction */
+                if (instruction != NULL)
+                {
+                    /* SET instruction */
+                    /**
+                     * label: SET value
+                     * this statement can be understood as:
+                     * label `label` pointing to the the memory location `value`
+                     */
+                    trim_whitespace(instruction);
+                    convert_space_words_to_space(instruction);
+
+                    if (strcmp(strtok(instruction, " "), "SET") == 0)
+                    {
+                        operand_as_str = strtok(NULL, " ");
+                        if (operand_as_str == NULL || !is_valid_number(operand_as_str))
+                        {
+                            /* ERROR: SET instruction expects a valid integer */
+                            char message[100] = {'\0'};
+                            strcat(message, "SET instruction expects integer format as operand: ");
+                            strcat(message, operand_as_str);
+                            add_new_stderr_message(stderr_list, true, line_number, ER_INTEGER,
+                                                   message);
+                            continue;
+                        }
+
+                        val = strtol(operand_as_str, NULL, 0);
+                    }
+                }
+
+                add_new_label(label_list, label, val);
             }
         }
 
@@ -461,8 +571,15 @@ void list_and_log_and_form_obj(OPTIONS *opt, LABEL_LIST *label_list, bool first_
 
         /* Following area of code is executed only in the second pass */
 
-        /* printing the PC in the listing file */
-        fprintf(fp_list, "%08X ", PC);
+        /**
+         * Printing the PC in the listing file
+         * @format:
+         *      PC(%08X)   memory_dump  code_line
+         * @example:
+         *      00000001    00001200    ldc 0x12
+         */
+
+        fprintf(fp_list, "%08X\t", PC);
 
         if (instruction != NULL)
         {
@@ -479,55 +596,64 @@ void list_and_log_and_form_obj(OPTIONS *opt, LABEL_LIST *label_list, bool first_
             if (oper == NULL)
             {
                 /* ERROR: mnemonic not found */
-                fprintf(fp_log, "%d\t; Mnemonic not found: %s\n", line_number, oper_as_str);
-                ERROR("%d|\tMnemonic not found: %s\n", line_number, oper_as_str);
-                ERROR("Find out more details in file: %s\n\n", opt->log_filename);
+                char message[100] = {'\0'};
+                strcat(message, "Mnemonic not found: ");
+                strcat(message, oper_as_str);
+                add_new_stderr_message(stderr_list, true, line_number, ER_MNEMONIC, message);
                 continue;
             }
 
             if (!oper->has_operand && operand_as_str != NULL)
             {
                 /* ERROR: found operand for isolated mnemonic */
-                fprintf(fp_log, "%d\t; Found operand(s) for an isolated mnemonic: %s\n",
-                        line_number, code_line);
-                ERROR("%d|\tFound operand for isolated mnemonics: %s %s\n", line_number,
-                      oper_as_str, operand_as_str);
-                ERROR("Find out more details in file: %s\n\n", opt->log_filename);
+                char message[100] = {'\0'};
+                strcat(message, "Found operand(s) for isolated mnemonic: ");
+                strcat(message, code_line);
+                add_new_stderr_message(stderr_list, true, line_number, ER_MORE_OPERAND, message);
                 continue;
             }
             else if (oper->has_operand && operand_as_str == NULL)
             {
                 /* ERROR: Expected operand, but did not find any */
-                fprintf(fp_log, "%d\t; Expected an operand, but could not find any: %s\n",
-                        line_number, code_line);
-                ERROR("%d|\tExpected an operand for mnemonic: %s\n", line_number, oper->OPER);
-                ERROR("Find out more details in file: %s\n\n", opt->log_filename);
+                char message[100] = {'\0'};
+                strcat(message, "Expected an operand, found none: ");
+                strcat(message, code_line);
+                add_new_stderr_message(stderr_list, true, line_number, ER_MISSING_OPERAND, message);
                 continue;
             }
-
-            /**
-             * TODO: DATA and SET settings
-             * TODO: 0x- and 0- operands
-             */
 
             memory_dump = oper->OPCODE;
 
             if (oper->has_operand)
             {
                 LABEL *label = search_for_label(label_list, operand_as_str);
+
+                if (label != NULL)
+                    label->referenced = true;
+
                 if (oper->relative_calc)
                 {
                     int offset;
                     if (label == NULL)
                     {
-                        /* undefined reference to a label */
-                        fprintf(fp_log, "%d\t; Could not find any label: %s\n", line_number,
-                                operand_as_str);
-                        ERROR("%d|\tNo such label as: %s\n", line_number, operand_as_str);
-                        ERROR("Find out more details in file: %s\n\n", opt->log_filename);
+                        /* ERROR: undefined reference to a label */
+                        char message[100] = {'\0'};
+                        strcat(message, "Could not find any such label: ");
+                        strcat(message, operand_as_str);
+                        add_new_stderr_message(stderr_list, true, line_number, ER_LABEL, message);
+                        /** ERROR("Find out more details in file: %s\n\n",
+                         * opt->log_filename); */
                         continue;
                     }
                     offset = ((label->program_address - PC - 1) << 8);
+                    if (offset == 0)
+                    {
+                        /* WARNING: unnecessary branching */
+                        char message[100] = {'\0'};
+                        strcat(message, "Branching with 0 offset: ");
+                        strcat(message, code_line);
+                        add_new_stderr_message(stderr_list, false, line_number, ER_BRANCH, message);
+                    }
                     memory_dump += offset;
                 }
                 else
@@ -536,10 +662,10 @@ void list_and_log_and_form_obj(OPTIONS *opt, LABEL_LIST *label_list, bool first_
                     if (!label && !is_valid_number(operand_as_str))
                     {
                         /* Non integer operand found where integer expected */
-                        fprintf(fp_log, "%d\t; Integer argument was expected: %s\n", line_number,
-                                operand_as_str);
-                        ERROR("%d|\tInteger not found: %s\n", line_number, operand_as_str);
-                        ERROR("Find out more details in file: %s\n\n", opt->log_filename);
+                        char message[100] = {'\0'};
+                        strcat(message, "Expected integer format, found: ");
+                        strcat(message, operand_as_str);
+                        add_new_stderr_message(stderr_list, true, line_number, ER_INTEGER, message);
                         continue;
                     }
                     if (label)
@@ -549,19 +675,37 @@ void list_and_log_and_form_obj(OPTIONS *opt, LABEL_LIST *label_list, bool first_
                         operand = strtol(operand_as_str, NULL, 0);
 
                     memory_dump += (operand << 8);
+
+                    /* data and SET handling */
+                    if (oper->OPCODE == -1)
+                    {
+                        /* data instruction */
+                        /**
+                         * label: data value
+                         * this statement can be understood as:
+                         * label `label` pointing to some location in the instruction memory
+                         * And at that memory address `value` is stored
+                         */
+                        memory_dump = operand;
+                    }
+                    else if (oper->OPCODE == -2)
+                    {
+                        /* Should be implemented and checked in the first pass itself */
+
+                        /* Should be just ignored and not mentioned in the obj file */
+                        /* PC should not be incremented in this case */
+                        fprintf(fp_list, "%*c\t%s\n", 8, ' ', code_line);
+                        continue;
+                    }
                 }
             }
 
-            fprintf(fp_list, "%08X ", memory_dump);
+            fprintf(fp_list, "%08X\t%s\n", memory_dump, code_line);
             fwrite(&memory_dump, 4, 1, fp_obj);
-            fprintf(fp_list, "%s\n", code_line);
             PC++;
         }
         else
-        {
-            fprintf(fp_list, "%*c", 9, ' ');
-            fprintf(fp_list, "%s\n", code_line);
-        }
+            fprintf(fp_list, "%*c\t%s\n", 8, ' ', code_line);
     }
 
     fclose(fp);
@@ -570,10 +714,69 @@ void list_and_log_and_form_obj(OPTIONS *opt, LABEL_LIST *label_list, bool first_
     fclose(fp_log);
 }
 
-void destroy_and_exit(OPTIONS *opt, LABEL_LIST *list, int status)
+void check_for_unused_label(LABEL_LIST *list, STDERR_MESSAGE_LIST *stderr_list)
+{
+    LABEL_NODE *iter;
+    for (iter = list->HEAD; iter != NULL; iter = iter->NEXT)
+    {
+        if (!iter->label->referenced)
+        {
+            char message[100] = {'\0'};
+            strcat(message, "Found unused label: ");
+            strcat(message, iter->label->identifier);
+            add_new_stderr_message(stderr_list, false, iter->label->program_address,
+                                   ER_UNUSED_LABEL, message);
+        }
+    }
+}
+
+void err_warn_log(STDERR_MESSAGE_LIST *stderr_list, const char *log_filename)
+{
+    FILE *fp_log = fopen(log_filename, "a");
+    STDERR_MESSAGE *iter;
+    /* #define ERROR(...) \
+        fprintf(stderr, "\033[0;31m[ERROR]: \033[0;0m"); \ fprintf(stderr, __VA_ARGS__);
+
+    #define WARNING(...) \
+        fprintf(stderr, "\033[0;33m[WARNING]: \033[0;0m"); \ fprintf(stderr, __VA_ARGS__);
+
+    #define DEBUG(...) \
+        fprintf(stderr, "\033[0;34m[DEBUG]: \033[0;0m"); \ fprintf(stderr, __VA_ARGS__); */
+    for (iter = stderr_list->head; iter != NULL; iter = iter->NEXT)
+    {
+        if (iter->is_error)
+        {
+            fprintf(stderr, "\033[0;31m[ERROR]: \033[0;0m");
+            fprintf(stderr, "%d|\t%s\n", iter->line_number, iter->message);
+            fprintf(stderr, "\033[0;31m[ERROR]: \033[0;0m");
+            fprintf(stderr, "Find out more in the log file: \033[0;34m%s\033[0;0m\n", log_filename);
+
+            fprintf(fp_log, "[ERROR]: ");
+            fprintf(fp_log, "%d|\t%s\n", iter->line_number, iter->message);
+            fprintf(fp_log, "[ERROR]: ");
+            fprintf(fp_log, "%s\n", LOG_MESSAGES[iter->status_code]);
+        }
+        else
+        {
+            fprintf(stderr, "\033[0;33m[WARNING]: \033[0;0m");
+            fprintf(stderr, "%d|\t%s\n", iter->line_number, iter->message);
+            fprintf(stderr, "\033[0;33m[WARNING]: \033[0;0m");
+            fprintf(stderr, "Find out more in the log file: \033[0;34m%s\033[0;0m\n", log_filename);
+
+            fprintf(fp_log, "[WARNING]: ");
+            fprintf(fp_log, "%d|\t%s\n", iter->line_number, iter->message);
+            fprintf(fp_log, "[WARNING]: ");
+            fprintf(fp_log, "%s\n", LOG_MESSAGES[iter->status_code]);
+        }
+    }
+}
+
+void destroy_and_exit(OPTIONS *opt, LABEL_LIST *list, STDERR_MESSAGE_LIST *stderr_list, int status)
 {
     destruct_list(list);
     destruct(opt);
+    destruct_stderr_message(stderr_list);
+
     exit(status);
 }
 
@@ -581,6 +784,7 @@ int main(int argc, char **argv)
 {
     OPTIONS opt;
     LABEL_LIST label_list;
+    STDERR_MESSAGE_LIST stderr_list = {NULL, NULL};
 
     initialise(&opt);
     initialise_list(&label_list);
@@ -588,19 +792,19 @@ int main(int argc, char **argv)
     if (argc == 1 || argc > 5)
     {
         print_usage();
-        destroy_and_exit(&opt, &label_list, -1);
+        destroy_and_exit(&opt, &label_list, &stderr_list, -1);
     }
     else if (argc == 2)
     {
         if (strcmp(argv[1], "-h") == 0)
         {
             print_help();
-            destroy_and_exit(&opt, &label_list, 0);
+            destroy_and_exit(&opt, &label_list, &stderr_list, 0);
         }
         else if (!check_if_file_exists_and_set(&opt, argv[1]))
         {
             print_usage();
-            destroy_and_exit(&opt, &label_list, -1);
+            destroy_and_exit(&opt, &label_list, &stderr_list, -1);
         }
     }
     else
@@ -611,20 +815,35 @@ int main(int argc, char **argv)
             if (!enable_opt(&opt, argv[i]))
             {
                 print_usage();
-                destroy_and_exit(&opt, &label_list, -1);
+                destroy_and_exit(&opt, &label_list, &stderr_list, -1);
             }
         }
 
         if (!check_if_file_exists_and_set(&opt, argv[i]))
         {
             print_usage();
-            destroy_and_exit(&opt, &label_list, -1);
+            destroy_and_exit(&opt, &label_list, &stderr_list, -1);
         }
     }
 
-    /* passing through the procedure to read and form object/listing/log file twice */
-    list_and_log_and_form_obj(&opt, &label_list, true);
-    list_and_log_and_form_obj(&opt, &label_list, false);
+    initialise_log_and_list_file(&opt);
 
-    destroy_and_exit(&opt, &label_list, 0);
+    /* passing through the procedure to read and form object/listing/log file twice */
+    list_and_form_obj(&opt, &label_list, &stderr_list, true);
+    list_and_form_obj(&opt, &label_list, &stderr_list, false);
+
+    check_for_unused_label(&label_list, &stderr_list);
+
+    err_warn_log(&stderr_list, opt.log_filename);
+
+    if (!opt.list_file)
+        remove(opt.list_filename);
+    if (!opt.log_file)
+        remove(opt.log_filename);
+    if (!opt.obj_file)
+        remove(opt.obj_filename);
+
+    destroy_and_exit(&opt, &label_list, &stderr_list, 0);
+
+    return 0;
 }

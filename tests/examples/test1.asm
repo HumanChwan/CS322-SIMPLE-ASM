@@ -12,6 +12,6 @@ LOOP:
     adc 1
     a2sp
     ldnl 5
-    br LOOP
+    br loooooop 
 
 
