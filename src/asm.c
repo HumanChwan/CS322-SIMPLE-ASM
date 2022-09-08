@@ -209,19 +209,19 @@ const int MNEMONIC_TYPES = 20;
 void print_usage()
 {
     fprintf(stderr, "Usage: asm [OPTIONS]... [FILE].asm\n");
-    fprintf(stderr, "Try `asm -h` for more information\n");
+    fprintf(stderr, "Try `asm -help` for more information\n");
 }
 
 void print_help()
 {
     printf("Usage: asm [OPTIONS]... [FILE].asm\n");
-    printf("Reads MIPS assembly code and outputs .o .log .list files\n");
-    printf("Example: `asm -o hello_world.asm\n\n");
+    printf("Reads MIPS assembly code and outputs .o .log .lst files\n");
+    printf("Example: `asm hello_world.asm`\n\n");
     printf("Options:\n");
     printf("\t-l\t\tDon't output list file\n");
     printf("\t-L\t\tDon't output log file\n");
     printf("\t-o\t\tDon't output object file\n");
-    printf("\t-h\t\tPrint this help\n");
+    printf("\t-help\t\tPrint this help\n");
 }
 
 void trim_whitespace(char *str)
@@ -410,8 +410,8 @@ bool check_if_file_exists_and_set(OPTIONS *opt, char *arg)
 
     opt->asm_filename = malloc(sizeof(char) * (len + 1));
     opt->log_filename = malloc(sizeof(char) * (len + 1));
+    opt->list_filename = malloc(sizeof(char) * (len + 1));
 
-    opt->list_filename = malloc(sizeof(char) * (len - 1));
     opt->obj_filename = malloc(sizeof(char) * (len - 1));
 
     strcpy(opt->asm_filename, arg);
@@ -420,7 +420,7 @@ bool check_if_file_exists_and_set(OPTIONS *opt, char *arg)
     strcpy(opt->log_filename + len - 4, ".log");
 
     strncpy(opt->list_filename, arg, len - 4);
-    strcpy(opt->list_filename + len - 4, ".l");
+    strcpy(opt->list_filename + len - 4, ".lst");
 
     strncpy(opt->obj_filename, arg, len - 4);
     strcpy(opt->obj_filename + len - 4, ".o");
@@ -506,10 +506,13 @@ void list_and_form_obj(OPTIONS *opt, LABEL_LIST *label_list, STDERR_MESSAGE_LIST
             if (!valid_label_name(label))
             {
                 /* ERROR: Invalid label */
-                char message[100] = {'\0'};
-                strcat(message, "Invalid label: ");
-                strcat(message, label);
-                add_new_stderr_message(stderr_list, true, line_number, ER_LABEL, message);
+                if (!first_pass)
+                {
+                    char message[100] = {'\0'};
+                    strcat(message, "Invalid label: ");
+                    strcat(message, label);
+                    add_new_stderr_message(stderr_list, true, line_number, ER_LABEL, message);
+                }
                 continue;
             }
             else if (first_pass)
@@ -530,6 +533,7 @@ void list_and_form_obj(OPTIONS *opt, LABEL_LIST *label_list, STDERR_MESSAGE_LIST
                 /* Implementation for SET instruction */
                 if (instruction != NULL)
                 {
+                    printf("val: %d", val);
                     /* SET instruction */
                     /**
                      * label: SET value
@@ -583,6 +587,7 @@ void list_and_form_obj(OPTIONS *opt, LABEL_LIST *label_list, STDERR_MESSAGE_LIST
 
         if (instruction != NULL)
         {
+            PC++;
             trim_whitespace(instruction);
 
             /* format of instruction: /\w[\w\s]*\w/ */
@@ -645,7 +650,14 @@ void list_and_form_obj(OPTIONS *opt, LABEL_LIST *label_list, STDERR_MESSAGE_LIST
                          * opt->log_filename); */
                         continue;
                     }
-                    offset = ((label->program_address - PC - 1) << 8);
+                    offset = ((label->program_address - PC) << 8);
+
+                    if (strcmp(label->identifier, "a") == 0)
+                    {
+                        printf("addr: %d, PC: %d, offset: %d", label->program_address, PC,
+                               offset >> 8);
+                    }
+
                     if (offset == 0)
                     {
                         /* WARNING: unnecessary branching */
@@ -702,7 +714,6 @@ void list_and_form_obj(OPTIONS *opt, LABEL_LIST *label_list, STDERR_MESSAGE_LIST
 
             fprintf(fp_list, "%08X\t%s\n", memory_dump, code_line);
             fwrite(&memory_dump, 4, 1, fp_obj);
-            PC++;
         }
         else
             fprintf(fp_list, "%*c\t%s\n", 8, ' ', code_line);
@@ -796,7 +807,7 @@ int main(int argc, char **argv)
     }
     else if (argc == 2)
     {
-        if (strcmp(argv[1], "-h") == 0)
+        if (strcmp(argv[1], "-help") == 0)
         {
             print_help();
             destroy_and_exit(&opt, &label_list, &stderr_list, 0);
@@ -844,6 +855,5 @@ int main(int argc, char **argv)
         remove(opt.obj_filename);
 
     destroy_and_exit(&opt, &label_list, &stderr_list, 0);
-
     return 0;
 }

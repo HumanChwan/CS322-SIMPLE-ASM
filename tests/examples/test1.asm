@@ -1,4 +1,4 @@
-label:   
+123label:   
 
 add
 ldc 0xA
@@ -13,5 +13,8 @@ LOOP:
     a2sp
     ldnl 5
     br loooooop 
+
+br a
+a: add
 
 
