@@ -194,8 +194,6 @@ void load_file_to_memory(OPTIONS *opt, MEMORY *memory)
     /* Bring the file pointer back to start */
     fseek(fp, 0, SEEK_SET);
 
-    fclose(fp);
-
     if (file_size % 4 != 0)
     {
         fprintf(stderr, "[ERROR]: File not valid object file, bytes: %d", file_size);
@@ -204,6 +202,8 @@ void load_file_to_memory(OPTIONS *opt, MEMORY *memory)
 
     /* This should load the object file dump into the memory array */
     fread(memory->raw, 4, file_size / 4, fp);
+
+    fclose(fp);
 
     memory->instruction_memory_size = file_size / 4;
 }
