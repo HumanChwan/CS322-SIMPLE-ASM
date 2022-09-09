@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-std=c89 -pedantic -Wall -W
+CFLAGS=-std=c89 -pedantic -Wall -W -Wpointer-arith -Wwrite-strings -Wstrict-prototypes
 
 BIN=bin/asm bin/emu
 

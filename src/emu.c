@@ -72,13 +72,13 @@ MNEMONIC mnemonics[] = {
 const int MNEMONIC_TYPES = 21;
 const int VALID_INSTRUCTION_MNEMONIC_TYPES = 18;
 
-void print_usage()
+void print_usage(void)
 {
     fprintf(stderr, "Usage: emu [OPTIONS]... [FILE].o\n"
                     "Try `emu -help` for more information\n");
 }
 
-void print_help()
+void print_help(void)
 {
     printf("Usage: emu [OPTIONS]... [FILE].o\n"
            "Reads object file and emulates execution.\n"
@@ -91,7 +91,7 @@ void print_help()
            "\t-help\t\tPrint this help\n");
 }
 
-void print_isa()
+void print_isa(void)
 {
     int i;
     printf("ISA For SIMPLE-ASM:\n\n");

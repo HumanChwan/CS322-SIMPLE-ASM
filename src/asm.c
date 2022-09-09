@@ -49,18 +49,17 @@ typedef enum
 
 #define LABEL_ER "Label should of the format (regex): /[a-zA-Z]\\w*/"
 #define MNEMONIC_ER                                                                                \
-    "Mnemonics/isa should follow the given set of instructions. Find out more by `emu "            \
-    "-isa`."
+    "Mnemonics/isa should follow the given set of instructions. Find out more by `emu -isa`."
 #define INTEGER_ER                                                                                 \
-    "Integers can be represented in decimal(0-9)[format: /(0|[1-9]\\d*)/, "                        \
-    "hex(0-F)[format: /0x[0-9a-fA-F]+/] or octal(0-7)[format: /0[0-7]+/] format."
+    "Integers can be represented in decimal(0-9)[format: /(0|[1-9]\\d*)/, hex(0-F)[format:"        \
+    " /0x[0-9a-fA-F]+/] or octal(0-7)[format: /0[0-7]+/] format."
 #define MISSING_ER "Was expecting an operand"
 #define MORE_OPERAND_ER "Found more operands, than mnemonic requires"
 #define BRANCH_ER "Unnecessary branching found, offset is 0"
 #define UNUSED_LABEL "Unused label found"
 
-char *LOG_MESSAGES[] = {LABEL_ER,        MNEMONIC_ER, INTEGER_ER,  MISSING_ER,
-                        MORE_OPERAND_ER, BRANCH_ER,   UNUSED_LABEL};
+const char *LOG_MESSAGES[] = {LABEL_ER,        MNEMONIC_ER, INTEGER_ER,  MISSING_ER,
+                              MORE_OPERAND_ER, BRANCH_ER,   UNUSED_LABEL};
 
 typedef struct STDERR_MESSAGE
 {
@@ -206,13 +205,13 @@ MNEMONIC mnemonics[] = {
 };
 const int MNEMONIC_TYPES = 21;
 
-void print_usage()
+void print_usage(void)
 {
     fprintf(stderr, "Usage: asm [OPTIONS]... [FILE].asm\n"
                     "Try `asm -help` for more information\n");
 }
 
-void print_help()
+void print_help(void)
 {
     printf("Usage: asm [OPTIONS]... [FILE].asm\n"
            "Reads MIPS assembly code and outputs .o .log .lst files\n"
