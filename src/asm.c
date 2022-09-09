@@ -107,7 +107,6 @@ LABEL *create_label(const char *label_identifier, int address)
     strcpy(label->identifier, label_identifier);
     label->referenced = false;
 
-
     return label;
 }
 
@@ -652,12 +651,6 @@ void list_and_form_obj(OPTIONS *opt, LABEL_LIST *label_list, STDERR_MESSAGE_LIST
                         continue;
                     }
                     offset = ((label->program_address - PC) << 8);
-
-                    if (strcmp(label->identifier, "a") == 0)
-                    {
-                        printf("addr: %d, PC: %d, offset: %d", label->program_address, PC,
-                               offset >> 8);
-                    }
 
                     if (offset == 0)
                     {
