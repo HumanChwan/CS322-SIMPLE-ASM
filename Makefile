@@ -4,6 +4,7 @@ CFLAGS=-std=c89 -pedantic -Wall -W
 BIN=bin/asm bin/emu
 
 all: $(BIN)
+	@echo "\`\033[0;32masm\033[0;0m\` and \`\033[0;32memu\033[0;0m\` can be found in \033[0;34m./bin\033[0;0m directory"
 
 bin/asm: src/asm.c
 	$(CC) $(CFLAGS) src/asm.c -o bin/asm

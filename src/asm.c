@@ -107,6 +107,7 @@ LABEL *create_label(const char *label_identifier, int address)
     strcpy(label->identifier, label_identifier);
     label->referenced = false;
 
+
     return label;
 }
 
@@ -196,32 +197,32 @@ void destruct_list(LABEL_LIST *list)
  * @mnemonic_schema: "mnemonic", opcode, accepts an operand, has to recalculated
  */
 MNEMONIC mnemonics[] = {
-    {"data", -1, true, false},    {"ldc", 0, true, false},    {"adc", 1, true, false},
-    {"ldl", 2, true, false},      {"stl", 3, true, false},    {"ldnl", 4, true, false},
-    {"stnl", 5, true, false},     {"add", 6, false, false},   {"sub", 7, false, false},
-    {"shl", 8, false, false},     {"shr", 9, false, false},   {"adj", 10, true, false},
-    {"a2sp", 11, false, false},   {"sp2a", 12, false, false}, {"call", 13, true, true},
-    {"return", 14, false, false}, {"brz", 15, true, true},    {"brlz", 16, true, true},
-    {"br", 17, true, true},       {"HALT", 18, false, false}, {"SET", -2, true, false},
+    {"ldc", 0, true, false},    {"adc", 1, true, false},  {"ldl", 2, true, false},
+    {"stl", 3, true, false},    {"ldnl", 4, true, false}, {"stnl", 5, true, false},
+    {"add", 6, false, false},   {"sub", 7, false, false}, {"shl", 8, false, false},
+    {"shr", 9, false, false},   {"adj", 10, true, false}, {"a2sp", 11, false, false},
+    {"sp2a", 12, false, false}, {"call", 13, true, true}, {"return", 14, false, false},
+    {"brz", 15, true, true},    {"brlz", 16, true, true}, {"br", 17, true, true},
+    {"HALT", 18, false, false}, {"SET", -2, true, false}, {"data", -1, true, false},
 };
-const int MNEMONIC_TYPES = 20;
+const int MNEMONIC_TYPES = 21;
 
 void print_usage()
 {
-    fprintf(stderr, "Usage: asm [OPTIONS]... [FILE].asm\n");
-    fprintf(stderr, "Try `asm -help` for more information\n");
+    fprintf(stderr, "Usage: asm [OPTIONS]... [FILE].asm\n"
+                    "Try `asm -help` for more information\n");
 }
 
 void print_help()
 {
-    printf("Usage: asm [OPTIONS]... [FILE].asm\n");
-    printf("Reads MIPS assembly code and outputs .o .log .lst files\n");
-    printf("Example: `asm hello_world.asm`\n\n");
-    printf("Options:\n");
-    printf("\t-l\t\tDon't output list file\n");
-    printf("\t-L\t\tDon't output log file\n");
-    printf("\t-o\t\tDon't output object file\n");
-    printf("\t-help\t\tPrint this help\n");
+    printf("Usage: asm [OPTIONS]... [FILE].asm\n"
+           "Reads MIPS assembly code and outputs .o .log .lst files\n"
+           "Example: `asm hello_world.asm`\n\n"
+           "Options:\n"
+           "\t-l\t\tDon't output list file\n"
+           "\t-L\t\tDon't output log file\n"
+           "\t-o\t\tDon't output object file\n"
+           "\t-help\t\tPrint this help\n");
 }
 
 void trim_whitespace(char *str)
@@ -533,7 +534,6 @@ void list_and_form_obj(OPTIONS *opt, LABEL_LIST *label_list, STDERR_MESSAGE_LIST
                 /* Implementation for SET instruction */
                 if (instruction != NULL)
                 {
-                    printf("val: %d", val);
                     /* SET instruction */
                     /**
                      * label: SET value
@@ -557,6 +557,7 @@ void list_and_form_obj(OPTIONS *opt, LABEL_LIST *label_list, STDERR_MESSAGE_LIST
                             continue;
                         }
 
+                        PC--;
                         val = strtol(operand_as_str, NULL, 0);
                     }
                 }
@@ -707,6 +708,7 @@ void list_and_form_obj(OPTIONS *opt, LABEL_LIST *label_list, STDERR_MESSAGE_LIST
                         /* Should be just ignored and not mentioned in the obj file */
                         /* PC should not be incremented in this case */
                         fprintf(fp_list, "%*c\t%s\n", 8, ' ', code_line);
+                        PC--;
                         continue;
                     }
                 }
@@ -757,27 +759,29 @@ void err_warn_log(STDERR_MESSAGE_LIST *stderr_list, const char *log_filename)
     {
         if (iter->is_error)
         {
-            fprintf(stderr, "\033[0;31m[ERROR]: \033[0;0m");
-            fprintf(stderr, "%d|\t%s\n", iter->line_number, iter->message);
-            fprintf(stderr, "\033[0;31m[ERROR]: \033[0;0m");
-            fprintf(stderr, "Find out more in the log file: \033[0;34m%s\033[0;0m\n", log_filename);
+            fprintf(stderr,
+                    "\033[0;31m[ERROR]: \033[0;0m%d|\t%s\n"
+                    "\033[0;31m[ERROR]: \033[0;0m"
+                    "Find out more in the log file: \033[0;34m%s\033[0;0m\n",
+                    iter->line_number, iter->message, log_filename);
 
-            fprintf(fp_log, "[ERROR]: ");
-            fprintf(fp_log, "%d|\t%s\n", iter->line_number, iter->message);
-            fprintf(fp_log, "[ERROR]: ");
-            fprintf(fp_log, "%s\n", LOG_MESSAGES[iter->status_code]);
+            fprintf(fp_log,
+                    "[ERROR]: %d|\t%s\n"
+                    "[ERROR]: %s\n",
+                    iter->line_number, iter->message, LOG_MESSAGES[iter->status_code]);
         }
         else
         {
-            fprintf(stderr, "\033[0;33m[WARNING]: \033[0;0m");
-            fprintf(stderr, "%d|\t%s\n", iter->line_number, iter->message);
-            fprintf(stderr, "\033[0;33m[WARNING]: \033[0;0m");
-            fprintf(stderr, "Find out more in the log file: \033[0;34m%s\033[0;0m\n", log_filename);
+            fprintf(stderr,
+                    "\033[0;33m[WARNING]: \033[0;0m%d|\t%s\n"
+                    "\033[0;33m[WARNING]: \033[0;0m"
+                    "Find out more in the log file: \033[0;34m%s\033[0;0m\n",
+                    iter->line_number, iter->message, log_filename);
 
-            fprintf(fp_log, "[WARNING]: ");
-            fprintf(fp_log, "%d|\t%s\n", iter->line_number, iter->message);
-            fprintf(fp_log, "[WARNING]: ");
-            fprintf(fp_log, "%s\n", LOG_MESSAGES[iter->status_code]);
+            fprintf(fp_log,
+                    "[WARNING]: %d|\t%s\n"
+                    "[WARNING]: %s\n",
+                    iter->line_number, iter->message, LOG_MESSAGES[iter->status_code]);
         }
     }
 }
