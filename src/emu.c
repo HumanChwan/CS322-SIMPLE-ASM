@@ -194,6 +194,8 @@ void load_file_to_memory(OPTIONS *opt, MEMORY *memory)
     /* Bring the file pointer back to start */
     fseek(fp, 0, SEEK_SET);
 
+    fclose(fp);
+
     if (file_size % 4 != 0)
     {
         fprintf(stderr, "[ERROR]: File not valid object file, bytes: %d", file_size);
@@ -208,8 +210,10 @@ void load_file_to_memory(OPTIONS *opt, MEMORY *memory)
 
 int sign_extend(unsigned int num, unsigned int rad)
 {
+    /* Extending a signed number of some `rad` bits into signed format of 32 bits */
     unsigned int mask = 0u;
     if ((num >> (rad - 1)) & 1u)
+        /* makes the mask equal to (11111000...000), where number of zeroes equal to `rad` */
         mask = ~(1U << rad) + 1;
 
     return (int)(mask | num);

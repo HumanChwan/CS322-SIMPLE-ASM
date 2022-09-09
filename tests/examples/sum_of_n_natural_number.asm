@@ -22,7 +22,7 @@ LOOP:               ; loop start
     br LOOP
 LOOP_OUT:
 
-times: SET 100      ; variable
+times: SET 3        ; variable
 HALT
 
 result: data 0      ; result is stored here

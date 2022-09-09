@@ -51,8 +51,8 @@ typedef enum
 #define MNEMONIC_ER                                                                                \
     "Mnemonics/isa should follow the given set of instructions. Find out more by `emu -isa`."
 #define INTEGER_ER                                                                                 \
-    "Integers can be represented in decimal(0-9)[format: /(0|[1-9]\\d*)/, hex(0-F)[format:"        \
-    " /0x[0-9a-fA-F]+/] or octal(0-7)[format: /0[0-7]+/] format."
+    ("Integers can be represented in decimal(0-9)[format: /(0|[1-9]\\d*)/, hex(0-F)[format:"       \
+     " /0x[0-9a-fA-F]+/] or octal(0-7)[format: /0[0-7]+/] format.")
 #define MISSING_ER "Was expecting an operand"
 #define MORE_OPERAND_ER "Found more operands, than mnemonic requires"
 #define BRANCH_ER "Unnecessary branching found, offset is 0"
@@ -466,6 +466,9 @@ void list_and_form_obj(OPTIONS *opt, LABEL_LIST *label_list, STDERR_MESSAGE_LIST
     if (fp == NULL)
     {
         fprintf(stderr, "\033[0;31m[ERROR]: FATAL ERROR\033[0;0m");
+        fclose(fp_list);
+        fclose(fp_log);
+        fclose(fp_obj);
         exit(-1);
     }
 
@@ -739,14 +742,7 @@ void err_warn_log(STDERR_MESSAGE_LIST *stderr_list, const char *log_filename)
 {
     FILE *fp_log = fopen(log_filename, "a");
     STDERR_MESSAGE *iter;
-    /* #define ERROR(...) \
-        fprintf(stderr, "\033[0;31m[ERROR]: \033[0;0m"); \ fprintf(stderr, __VA_ARGS__);
-
-    #define WARNING(...) \
-        fprintf(stderr, "\033[0;33m[WARNING]: \033[0;0m"); \ fprintf(stderr, __VA_ARGS__);
-
-    #define DEBUG(...) \
-        fprintf(stderr, "\033[0;34m[DEBUG]: \033[0;0m"); \ fprintf(stderr, __VA_ARGS__); */
+    
     for (iter = stderr_list->head; iter != NULL; iter = iter->NEXT)
     {
         if (iter->is_error)
@@ -776,6 +772,8 @@ void err_warn_log(STDERR_MESSAGE_LIST *stderr_list, const char *log_filename)
                     iter->line_number, iter->message, LOG_MESSAGES[iter->status_code]);
         }
     }
+
+    fclose(fp_log);
 }
 
 void destroy_and_exit(OPTIONS *opt, LABEL_LIST *list, STDERR_MESSAGE_LIST *stderr_list, int status)
