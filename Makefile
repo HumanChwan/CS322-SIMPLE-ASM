@@ -13,4 +13,4 @@ bin/emu: src/emu.c
 	$(CC) $(CFLAGS) src/emu.c -o bin/emu
 
 clean:
-	rm -f bin/asm bin/emu  
+	rm -f bin/asm bin/emu
