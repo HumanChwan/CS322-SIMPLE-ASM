@@ -479,6 +479,7 @@ void list_and_form_obj(OPTIONS *opt, LABEL_LIST *label_list, STDERR_MESSAGE_LIST
 
         line_number++;
 
+        trim_whitespace(buffer);
         if (buffer[0] == '\0' || buffer[0] == '\n')
             continue;
         if (buffer[0] == ';')
@@ -742,7 +743,7 @@ void err_warn_log(STDERR_MESSAGE_LIST *stderr_list, const char *log_filename)
 {
     FILE *fp_log = fopen(log_filename, "a");
     STDERR_MESSAGE *iter;
-    
+
     for (iter = stderr_list->head; iter != NULL; iter = iter->NEXT)
     {
         if (iter->is_error)

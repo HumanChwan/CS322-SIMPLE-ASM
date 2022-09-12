@@ -13,6 +13,7 @@
  *
  */
 
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,6 +28,8 @@
 typedef struct
 {
     bool trace;
+    bool read_flag;
+    bool write_flag;
     bool mem_dump_before;
     bool mem_dump_after;
     bool isa;
@@ -70,7 +73,7 @@ MNEMONIC mnemonics[] = {
     {"HALT", 18, false, false}, {"SET", -2, true, false}, {"data", -1, true, false},
 };
 const int MNEMONIC_TYPES = 21;
-const int VALID_INSTRUCTION_MNEMONIC_TYPES = 18;
+const int VALID_INSTRUCTION_MNEMONIC_TYPES = 19;
 
 void print_usage(void)
 {
@@ -103,7 +106,7 @@ void print_isa(void)
     }
 }
 
-void memory_dump(REGISTERS *registers, MEMORY *memory)
+void memory_dump(REGISTERS *registers, MEMORY *memory, int L_limit, int R_Limit)
 {
     int i;
     printf("\033[0;31mMemory Dump:\033[0;0m\n\n");
@@ -117,10 +120,11 @@ void memory_dump(REGISTERS *registers, MEMORY *memory)
            registers->Program_Counter, registers->Stack_Pointer, registers->Stack_Pointer);
 
     printf("MEMORY:\n\033[0;34m");
-    for (i = 0; i < memory->instruction_memory_size;)
+    R_Limit = (R_Limit == -1 ? memory->instruction_memory_size : R_Limit + 1);
+    for (i = L_limit; i < R_Limit;)
     {
         int till = i + 8;
-        for (; i < memory->instruction_memory_size && i < till; ++i)
+        for (; i < R_Limit && i < till; ++i)
             printf("%08X ", memory->raw[i]);
         printf("\n");
     }
@@ -147,6 +151,10 @@ void enable_opt(OPTIONS *opt, const char *arg)
         opt->mem_dump_after = true;
     else if (strcmp(arg, "-trace") == 0)
         opt->trace = true;
+    else if (strcmp(arg, "-read") == 0)
+        opt->read_flag = true;
+    else if (strcmp(arg, "-write") == 0)
+        opt->write_flag = true;
 }
 
 bool check_if_file_exists_and_set(OPTIONS *opt, const char *arg)
@@ -208,31 +216,161 @@ void load_file_to_memory(OPTIONS *opt, MEMORY *memory)
     memory->instruction_memory_size = file_size / 4;
 }
 
-int sign_extend(unsigned int num, unsigned int rad)
+void trim_whitespace(char *str)
 {
-    /* Extending a signed number of some `rad` bits into signed format of 32 bits */
-    unsigned int mask = 0u;
-    if ((num >> (rad - 1)) & 1u)
-        /* makes the mask equal to (11111000...000), where number of zeroes equal to `rad` */
-        mask = ~(1U << rad) + 1;
+    int len, i = 0, j = 0, k = 0;
+    char *cpy;
+    if (str == NULL)
+        return;
 
-    return (int)(mask | num);
+    len = strlen(str);
+    while (i < len && isspace(str[i]))
+        i++;
+    while (i < len - j - 1 && isspace(str[len - 1 - j]))
+        j++;
+
+    if (len - j - i == 0)
+    {
+        *str = '\0';
+        return;
+    }
+
+    cpy = malloc(len - i - j + 1);
+    for (k = 0; k < len - j - i; ++k)
+        cpy[k] = str[i + k];
+    cpy[k] = '\0';
+
+    strcpy(str, cpy);
+    free(cpy);
+}
+
+bool is_valid_number(const char *str)
+{
+    int i = 0, type = 0, len;
+    /**
+     * @type:
+     * 0: Decimal (base 10)
+     * 1: Octal (base 8)
+     * 2: Hexadecimal (base 16)
+     */
+    /* Special Case: 0 */
+    if (strcmp(str, "0") == 0)
+        return true;
+
+    if (str[0] == '-' || str[0] == '+')
+        i++;
+
+    len = strlen(str);
+    if (len == i)
+        return false;
+
+    if (str[i] == '0')
+    {
+        i++;
+        if (i < len && str[i] == 'x')
+            i++, type = 2;
+        else
+            type = 1;
+    }
+    else
+        type = 0;
+
+    if (i == len)
+        return false;
+
+    for (; str[i] != '\0'; ++i)
+    {
+        if (type == 0 && !isdigit(str[i]))
+            return false;
+        else if (type == 1 && !('0' <= str[i] && str[i] < '8'))
+            return false;
+        else if (type == 2 && !isxdigit(str[i]))
+            return false;
+    }
+    return true;
 }
 
 void execute(OPTIONS *opt, REGISTERS *registers, MEMORY *memory)
 {
     bool HALT = false;
+    bool cmd_after_lines = 0;
     while (!HALT)
     {
-        unsigned int instruction = memory->raw[registers->Program_Counter];
+        unsigned int instruction;
         int oper, operand;
 
         if (opt->trace)
             print_trace(registers);
 
+        if (cmd_after_lines == 0)
+        {
+            bool exit_prompt = false;
+            while (!exit_prompt)
+            {
+                char command[100];
+
+                printf("> ");
+                fgets(command, 100, stdin);
+
+                /* NULL Termination */
+                command[strlen(command) - 1] = '\0';
+
+                trim_whitespace(command);
+
+                if (strcmp(command, "run") == 0)
+                    cmd_after_lines = 1, exit_prompt = true;
+                else if (strncmp(command, "run ", 4) == 0)
+                {
+                    if (!is_valid_number(command + 4))
+                        fprintf(stderr, "\033[0;31mINVALID COMMAND\033[0;0m\n");
+                    else
+                        cmd_after_lines = strtol(command + 4, NULL, 0), exit_prompt = true;
+                }
+                else if (strcmp(command, "dump") == 0)
+                    memory_dump(registers, memory, 0, 0);
+                else if (strncmp(command, "dump ", 5) == 0)
+                {
+                    char *first = strtok(command + 5, " "), *second = strtok(NULL, " ");
+                    int a = strtol(first, NULL, 0), b = strtol(second, NULL, 0);
+                    if (!is_valid_number(first))
+                    {
+                        fprintf(stderr, "\033[0;31mINVALID COMMAND\033[0;0m\n");
+                        continue;
+                    }
+
+                    if (second == NULL)
+                    {
+                        memory_dump(registers, memory, strtol(first, NULL, 0), 40);
+                        continue;
+                    }
+
+                    if (!is_valid_number(second) || a > b)
+                    {
+                        fprintf(stderr, "\033[0;31mINVALID COMMAND\033[0;0m\n");
+                        continue;
+                    }
+
+                    memory_dump(registers, memory, a, b);
+                }
+                else if (strcmp(command, "exec") == 0)
+                    cmd_after_lines = -1, exit_prompt = true;
+                else if (strcmp(command, "exit") == 0)
+                    HALT = true, exit_prompt = true;
+                else
+                    fprintf(stderr, "\033[0;31mINVALID COMMAND\033[0;0m\n");
+            }
+
+            if (HALT)
+                break;
+        }
+
+        if (cmd_after_lines > 0)
+            cmd_after_lines--;
+
+        instruction = memory->raw[registers->Program_Counter];
+
         oper = (instruction % (1 << 8));
-        /* Sign extension of 24 bit number to 32 bit */
-        operand = sign_extend(instruction >> 8u, 6 * 4);
+        operand = (int)instruction >> 8;
 
         /* Moving PC ahead, before parsing the instruction */
         registers->Program_Counter++;
@@ -244,13 +382,10 @@ void execute(OPTIONS *opt, REGISTERS *registers, MEMORY *memory)
             exit(-1);
         }
 
-        if (opt->trace)
-        {
-            printf("MNEMONIC: \033[0;34m%s", mnemonics[oper].OPER);
-            if (mnemonics[oper].has_operand)
-                printf(" %d", operand);
-            printf("\033[0;0m\n");
-        }
+        printf("MNEMONIC: \033[0;34m%s", mnemonics[oper].OPER);
+        if (mnemonics[oper].has_operand)
+            printf(" %d", operand);
+        printf("\033[0;0m\n");
 
         switch (oper)
         {
@@ -284,6 +419,11 @@ void execute(OPTIONS *opt, REGISTERS *registers, MEMORY *memory)
              *      B := A
              *      A := memory[SP + offset]
              */
+            if (opt->read_flag)
+                printf("\033[0;35m[READ]:\033[0;0m Memory address \033[0;34m%08X\033[0;0m is being "
+                       "read.\n",
+                       registers->Stack_Pointer + operand);
+
             registers->B = registers->A;
             registers->A = memory->raw[registers->Stack_Pointer + operand];
             break;
@@ -296,6 +436,11 @@ void execute(OPTIONS *opt, REGISTERS *registers, MEMORY *memory)
              *      memory[SP + offset] := A
              *      A := B
              */
+            if (opt->write_flag)
+                printf("\033[0;35m[WRITE]:\033[0;0m Memory address \033[0;34m%08X\033[0;0m is "
+                       "being written over.\n",
+                       registers->Stack_Pointer + operand);
+
             memory->raw[registers->Stack_Pointer + operand] = registers->A;
             registers->A = registers->B;
             break;
@@ -307,6 +452,11 @@ void execute(OPTIONS *opt, REGISTERS *registers, MEMORY *memory)
              * @brief:
              *      A := memory[A + offset]
              */
+            if (opt->read_flag)
+                printf("\033[0;35m[READ]:\033[0;0m Memory address \033[0;34m%08X\033[0;0m is being "
+                       "read.\n",
+                       registers->A + operand);
+
             registers->A = memory->raw[registers->A + operand];
             break;
         }
@@ -317,6 +467,11 @@ void execute(OPTIONS *opt, REGISTERS *registers, MEMORY *memory)
              * @brief:
              *      memory[A + offset] := B
              */
+            if (opt->write_flag)
+                printf("\033[0;35m[WRITE]:\033[0;0m Memory address \033[0;34m%08X\033[0;0m is "
+                       "being written over.\n",
+                       registers->A + operand);
+
             memory->raw[registers->A + operand] = registers->B;
             break;
         }
@@ -462,6 +617,7 @@ void execute(OPTIONS *opt, REGISTERS *registers, MEMORY *memory)
              *      Halt := true
              */
             HALT = true;
+            printf("\n\033[0;32mProgram Halted!\033[0;0m\n\n");
             break;
         }
         default: {
@@ -470,7 +626,6 @@ void execute(OPTIONS *opt, REGISTERS *registers, MEMORY *memory)
         }
         }
     }
-    printf("\033[0;32mProgram Halted!\033[0;0m\n");
 }
 
 void destruct_and_exit(OPTIONS *opt, int status_code)
@@ -481,7 +636,7 @@ void destruct_and_exit(OPTIONS *opt, int status_code)
 
 int main(int argc, char **argv)
 {
-    OPTIONS opt = {false, false, false, false, NULL};
+    OPTIONS opt = {false, false, false, false, false, false, NULL};
 
     /* Memory and Register Initialization */
     static REGISTERS Registers = {0, 0, 0, 0};
@@ -497,6 +652,11 @@ int main(int argc, char **argv)
         if (strcmp(argv[1], "-help") == 0)
         {
             print_help();
+            destruct_and_exit(&opt, 0);
+        }
+        else if (strcmp(argv[1], "-isa") == 0)
+        {
+            print_isa();
             destruct_and_exit(&opt, 0);
         }
         print_usage();
@@ -521,12 +681,12 @@ int main(int argc, char **argv)
     load_file_to_memory(&opt, &Memory);
 
     if (opt.mem_dump_before)
-        memory_dump(&Registers, &Memory);
+        memory_dump(&Registers, &Memory, 0, -1);
 
     execute(&opt, &Registers, &Memory);
 
     if (opt.mem_dump_after)
-        memory_dump(&Registers, &Memory);
+        memory_dump(&Registers, &Memory, 0, -1);
 
     destruct_and_exit(&opt, 0);
     return 0;
