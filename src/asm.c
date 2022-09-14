@@ -86,6 +86,7 @@ typedef struct
 {
     char *identifier;
     int program_address;
+    int line_number;
     bool referenced;
 } LABEL;
 
@@ -105,10 +106,11 @@ void initialise_list(LABEL_LIST *label_list)
     label_list->HEAD = label_list->TAIL = NULL;
 }
 
-LABEL *create_label(const char *label_identifier, int address)
+LABEL *create_label(const char *label_identifier, int address, int line_number)
 {
     LABEL *label = malloc(sizeof(LABEL));
     label->program_address = address;
+    label->line_number = line_number;
     label->identifier = malloc(sizeof(char) * (strlen(label_identifier) + 1));
     strcpy(label->identifier, label_identifier);
     label->referenced = false;
@@ -116,18 +118,18 @@ LABEL *create_label(const char *label_identifier, int address)
     return label;
 }
 
-LABEL_NODE *create_label_node(const char *label_identifier, int address)
+LABEL_NODE *create_label_node(const char *label_identifier, int address, int line_number)
 {
     LABEL_NODE *node = malloc(sizeof(LABEL_NODE));
-    node->label = create_label(label_identifier, address);
+    node->label = create_label(label_identifier, address, line_number);
     node->NEXT = NULL;
 
     return node;
 }
 
-void add_new_label(LABEL_LIST *list, const char *label_identifier, int address)
+void add_new_label(LABEL_LIST *list, const char *label_identifier, int address, int line_number)
 {
-    LABEL_NODE *node = create_label_node(label_identifier, address);
+    LABEL_NODE *node = create_label_node(label_identifier, address, line_number);
 
     if (list->HEAD == NULL)
         list->HEAD = node;
@@ -571,7 +573,7 @@ void list_and_form_obj(OPTIONS *opt, LABEL_LIST *label_list, STDERR_MESSAGE_LIST
                     }
                 }
 
-                add_new_label(label_list, label, val);
+                add_new_label(label_list, label, val, line_number);
             }
         }
 
@@ -740,8 +742,8 @@ void check_for_unused_label(LABEL_LIST *list, STDERR_MESSAGE_LIST *stderr_list)
             char message[100] = {'\0'};
             strcat(message, "Found unused label: ");
             strcat(message, iter->label->identifier);
-            add_new_stderr_message(stderr_list, false, iter->label->program_address,
-                                   ER_UNUSED_LABEL, message);
+            add_new_stderr_message(stderr_list, false, iter->label->line_number, ER_UNUSED_LABEL,
+                                   message);
         }
     }
 }

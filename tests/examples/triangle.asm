@@ -1,22 +1,22 @@
-        ldc 0x1000
-        a2sp
+        ldc 0x1000          ; move SP far away
+        a2sp                ; ^
         adj -1
-        ldc result
-        stl 0
-        ldc count
-        ldnl 0
-        call main
+        ldc result          ; A = addr of result
+        stl 0               ; stored addr of result
+        ldc count           ; A = addr of count
+        ldnl 0              ; A = count
+        call main           ; A = PC & B = count
         adj 1
         HALT
-main:   adj -3
-        stl 1
-        stl 2
-        ldc 0
-        stl 0
-loop:   adj -1
-        ldl 3
-        stl 0
-        ldl 1
+main:   adj -3              ; make space
+        stl 1               ; store PC & A = B = Count
+        stl 2               ; store count
+        ldc 0               ; A = 0, B = count
+        stl 0               ; store 0, A = count
+loop:   adj -1              ; make space
+        ldl 3               ; A = 0
+        stl 0               ; store
+        ldl 1               ; 
         call triangle
         adj 1
         ldl 3

@@ -1,0 +1,164 @@
+/*****************************************************************************
+ * TITLE: Claims                                                             *
+ * AUTHOR: Chukkala Dinesh                                                   *
+ *                                                                           *
+ * Declaration of Authorship:                                                *
+ * I hereby confirm that this assignment and the work presented in it is     *
+ * entirely my own. I agree that the present work may be verified with       *
+ * an anti-plagiarism software.                                              *
+ *                                                                           *
+ * This txt file, `claims.txt`, is part of the assignment of CS322 at the    *
+ * Department of Computer Science and Engineering, IIT Patna.                *
+ *****************************************************************************/
+
+=============================
+Files:
+=============================
+1.  All the files I submitted `asm.c`, `emu.c` and `claims.txt`, have my NAME and ROLL NO at the start, along with a Declaration of Authorship.
+
+2.  The evidence for ASSEMBLER including the output files from the `6` test examples has also been uploaded. They are:
+        1) binary_search.asm                (3 output files)
+        2) fibonacci.asm                    (3 output files)
+        3) sum_of_n_natural_number.asm      (3 output files)
+        4) bubble_sort.asm                  (3 output files)
+        5) error_handling.asm               (3 output files)
+        6) triangle.asm                     (3 output files)
+    All the test files have been tested and work properly.
+
+3.  As for the evidence for EMULATOR, `5` files namely `fibonacci.txt`, `sum_of_n_natural_number.asm`, `triangle.asm`, `bubble_sort.asm` and `binary_search.asm` are also submitted.
+
+4.  Both of my C programs did not show any errors and warnings when Compiled it with:
+    CC: `gcc`
+    FLAGS: `-std=c89 -pedantic -W -Wall -Wpointer-arith -Wwrite-strings -Wstrict-prototypes`
+
+5.  Both the source files `asm.c` and `emu.c` are in the `src/` directory.
+
+6.  A `Makefile` has also been uploaded along with the other files.
+
+7. `Makefile` defaults to save the `asm` and `emu` executables in the `bin/` directory.
+
+
+
+=============================
+Program format and structure:
+=============================
+1. ASSEMBLER:
+    * With two data structures to store labels and mnemonic table with expected operands respectively.
+    * Uses a single routine for both passes.
+    * Detects label erros.
+    * Consistent and sensible formatting with sensible program structure.
+    * Sensible variable, function & type names with explanatory comments.
+    * Advanced listing file.
+    * Has [-o|-L|-l] options, specifying the flag for not having `output`, `log` and `list` file respectively.
+    * Assembles test programs.
+    * Have implemented and demonstrated the SET instruction.
+
+2. EMULATOR:
+    * With three data structures to store memory, mnemonic table with expected operands and Register file structure respectively.
+    * Loads object file.
+    * Lets user have an interaction CLI. Allowing to `run`, `exec` or `dump` a file.
+    * By giving the instructions like `-before | -after`, the program can produce memory dump before/after execution.
+    * By giving the instruction like "-trace", the program shows the state of registers as the program executes.
+    * Detects errant programs.
+
+
+=============================
+Testing:
+=============================
+1. ASSEMBLER:
+    I have tested 6 examples shown as below. The errors only occurred in the file `error_handling.asm` and the program immediately stopped on the second pass.
+    The others were tested without any errors detected and produced three output files `listing file`, `log file` and `machine readable object file` for each example.
+    All of the above mentioned files have been attached along.
+
+    1)
+        # ASM-execution: ./bin/asm tests/examples/fibonacci.asm
+        # OUTPUT:
+            a. fibonacci.l
+            b. fibonacci.log (without any error messages)
+            c. fibonacci.o
+        # STDERR:
+            <EMPTY>
+
+    2)
+        # ASM-execution: `./bin/asm tests/examples/error_handling.asm`
+        # OUTPUT:
+            a. error_handling.l
+            b. error_handling.log
+            c. error_handling.o
+        # STDERR:
+            [ERROR]: 1|     Invalid label: 123label
+            [ERROR]: Find out more in the log file: tests/examples/error_handle.log
+            [ERROR]: 5|     Expected an operand, found none: adj
+            [ERROR]: Find out more in the log file: tests/examples/error_handle.log
+            [ERROR]: 13|    Found operand(s) for isolated mnemonic: add 2
+            [ERROR]: Find out more in the log file: tests/examples/error_handle.log
+            [ERROR]: 15|    Mnemonic not found: mult
+            [ERROR]: Find out more in the log file: tests/examples/error_handle.log
+            [ERROR]: 17|    Could not find any such label: loooooop
+            [ERROR]: Find out more in the log file: tests/examples/error_handle.log
+            [WARNING]: 19|  Branching with 0 offset: br a
+            [WARNING]: Find out more in the log file: tests/examples/error_handle.log
+            [WARNING]: 5|   Found unused label: LOOP
+            [WARNING]: Find out more in the log file: tests/examples/error_handle.log
+
+    3)
+        # ASM-execution: `./bin/asm tests/examples/sum_of_natural_num.asm`
+        # OUTPUT:
+            a. sum_of_n_natural_number.l
+            b. sum_of_n_natural_number.log (without any error messages)
+            c. sum_of_n_natural_number.o
+        # STDERR:
+            <EMPTY>
+
+    4)
+        # ASM-execution: `./bin/asm tests/examples/triangle.asm`
+        # OUTPUT:
+            a. triangle.l
+            b. triangle.log (without any error messages)
+            c. triangle.o
+        # STDERR:
+            <EMPTY>
+
+    5)
+        # ASM-execution: `./bin/asm tests/Bubble_sort/bubble_sort.asm`
+        # OUTPUT:
+            a. bubble_sort.l
+            b. bubble_sort.log (without any error messages)
+            c. bubble_sort.o
+        # STDERR:
+            <EMPTY>
+
+    6)
+        # ASM-execution: `./bin/asm tests/examples/binary_search.asm`
+        # OUTPUT:
+            a. binary_search.l
+            b. binary_search.log (without any error messages)
+            c. binary_search.o
+        # STDERR:
+            <EMPTY>
+
+
+2. EMULATOR:
+
+I have tested three examples shown as bellow. The errors only occurred in the file test3.o and the program immediately stopped with an error message on the screen.
+
+The others were tested without any errors detected and produced excution data both on the screen and output text file for each example according to the usage instruction.
+
+After running the bin file given, the trace data are the same as the implemented result from my own program.
+
+1)
+#Input:emu -trace memcpy.asm
+#Output: memcpy.txt
+
+
+2)
+#Input: emu -trace triangle.asm
+#Output: triangle.txt
+
+
+3)
+#Input: emu -trace test3.asm
+#Output: Fail to complete.
+with error messages shown on the screen
+
+PC=00000000, SP=08049596, A=008172D0, B=0804958C Fatal error occurred! No instruction can be found!

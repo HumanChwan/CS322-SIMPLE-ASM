@@ -299,7 +299,7 @@ bool is_valid_number(const char *str)
 void execute(OPTIONS *opt, REGISTERS *registers, MEMORY *memory)
 {
     bool HALT = false;
-    bool cmd_after_lines = 0;
+    int cmd_after_lines = 0;
     while (!HALT)
     {
         unsigned int instruction;
@@ -333,7 +333,7 @@ void execute(OPTIONS *opt, REGISTERS *registers, MEMORY *memory)
                         cmd_after_lines = strtol(command + 4, NULL, 0), exit_prompt = true;
                 }
                 else if (strcmp(command, "dump") == 0)
-                    memory_dump(registers, memory, 0, 0);
+                    memory_dump(registers, memory, 0, -1);
                 else if (strncmp(command, "dump ", 5) == 0)
                 {
                     char *first = strtok(command + 5, " "), *second = strtok(NULL, " ");
