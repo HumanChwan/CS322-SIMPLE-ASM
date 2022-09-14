@@ -36,8 +36,10 @@ fibo:
     ; NON-BASE Case
     adj -2
     stl 0
+    ldl 0
 
     ; getting fibo(n - 2)
+    call fibo
     stl 1 ; A = ...
     ldl 0 ; A = n - 2 
 
@@ -62,5 +64,5 @@ fibo:
     adj 1
     return
 
-ARG: SET 2
+ARG: SET 10
 result: data 0

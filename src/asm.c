@@ -22,6 +22,13 @@
 #define true 1
 #define false 0
 
+#define RED "\033[0;31m"
+#define GREEN "\033[0;32m"
+#define YELLOW "\033[0;33m"
+#define BLUE "\033[0;34m"
+#define PURPLE "\033[0;35m"
+#define NORMAL "\033[0;0m"
+
 typedef struct
 {
     bool log_file, list_file, obj_file;
@@ -465,7 +472,7 @@ void list_and_form_obj(OPTIONS *opt, LABEL_LIST *label_list, STDERR_MESSAGE_LIST
 
     if (fp == NULL)
     {
-        fprintf(stderr, "\033[0;31m[ERROR]: FATAL ERROR\033[0;0m");
+        fprintf(stderr, RED "[ERROR]: FATAL ERROR" NORMAL);
         fclose(fp_list);
         fclose(fp_log);
         fclose(fp_obj);
@@ -749,9 +756,8 @@ void err_warn_log(STDERR_MESSAGE_LIST *stderr_list, const char *log_filename)
         if (iter->is_error)
         {
             fprintf(stderr,
-                    "\033[0;31m[ERROR]: \033[0;0m%d|\t%s\n"
-                    "\033[0;31m[ERROR]: \033[0;0m"
-                    "Find out more in the log file: \033[0;34m%s\033[0;0m\n",
+                    RED "[ERROR]: " NORMAL "%d|\t%s\n" RED "[ERROR]: " NORMAL ""
+                        "Find out more in the log file: " BLUE "%s" NORMAL "\n",
                     iter->line_number, iter->message, log_filename);
 
             fprintf(fp_log,
@@ -762,9 +768,8 @@ void err_warn_log(STDERR_MESSAGE_LIST *stderr_list, const char *log_filename)
         else
         {
             fprintf(stderr,
-                    "\033[0;33m[WARNING]: \033[0;0m%d|\t%s\n"
-                    "\033[0;33m[WARNING]: \033[0;0m"
-                    "Find out more in the log file: \033[0;34m%s\033[0;0m\n",
+                    YELLOW "[WARNING]: " NORMAL "%d|\t%s\n" YELLOW "[WARNING]: " NORMAL ""
+                           "Find out more in the log file: " BLUE "%s" NORMAL "\n",
                     iter->line_number, iter->message, log_filename);
 
             fprintf(fp_log,

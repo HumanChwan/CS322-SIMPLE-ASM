@@ -22,6 +22,13 @@
 #define true 1
 #define false 0
 
+#define RED "\033[0;31m"
+#define GREEN "\033[0;32m"
+#define YELLOW "\033[0;33m"
+#define BLUE "\033[0;34m"
+#define PURPLE "\033[0;35m"
+#define NORMAL "\033[0;0m"
+
 /* Memory Size: 0x100000 (approx ~ 1e6) */
 #define MEMORY_SIZE 0x100000
 
@@ -100,7 +107,7 @@ void print_isa(void)
     printf("ISA For SIMPLE-ASM:\n\n");
     for (i = 0; i < MNEMONIC_TYPES; ++i)
     {
-        printf("%02X:\t\033[0;33m%s\033[0;0m\t\033[0;34m%s\033[0;0m\n",
+        printf("%02X:\t" YELLOW "%s" NORMAL "\t" BLUE "%s" NORMAL "\n",
                (mnemonics[i].OPCODE >= 0 ? mnemonics[i].OPCODE : 00), mnemonics[i].OPER,
                mnemonics[i].has_operand ? (mnemonics[i].relative_calc ? "label" : "value") : "\0");
     }
@@ -109,17 +116,16 @@ void print_isa(void)
 void memory_dump(REGISTERS *registers, MEMORY *memory, int L_limit, int R_Limit)
 {
     int i;
-    printf("\033[0;31mMemory Dump:\033[0;0m\n\n");
+    printf(RED "Memory Dump:" NORMAL "\n\n");
 
-    printf("REGISTERS:\n"
-           "\033[0;33mA\033[0;0m:\t\t\t\033[0;34m%d (%08X)\033[0;0m\n"
-           "\033[0;33mB\033[0;0m:\t\t\t\033[0;34m%d (%08X)\033[0;0m\n"
-           "\033[0;33mProgram Counter\033[0;0m:\t\033[0;34m%d (%08X)\033[0;0m\n"
-           "\033[0;33mStack Pointer\033[0;0m:\t\t\033[0;34m%d (%08X)\033[0;0m\n\n",
+    printf("REGISTERS:\n" YELLOW "A" NORMAL ":\t\t\t" BLUE "%d (%08X)" NORMAL "\n" YELLOW "B" NORMAL
+           ":\t\t\t" BLUE "%d (%08X)" NORMAL "\n" YELLOW "Program Counter" NORMAL ":\t" BLUE
+           "%d (%08X)" NORMAL "\n" YELLOW "Stack Pointer" NORMAL ":\t\t" BLUE "%d (%08X)" NORMAL
+           "\n\n",
            registers->A, registers->A, registers->B, registers->B, registers->Program_Counter,
            registers->Program_Counter, registers->Stack_Pointer, registers->Stack_Pointer);
 
-    printf("MEMORY:\n\033[0;34m");
+    printf("MEMORY:\n" BLUE "");
     R_Limit = (R_Limit == -1 ? memory->instruction_memory_size : R_Limit + 1);
     for (i = L_limit; i < R_Limit;)
     {
@@ -128,15 +134,15 @@ void memory_dump(REGISTERS *registers, MEMORY *memory, int L_limit, int R_Limit)
             printf("%08X ", memory->raw[i]);
         printf("\n");
     }
-    printf("\033[0;0m\n");
+    printf("" NORMAL "\n");
 }
 
 void print_trace(REGISTERS *registers)
 {
-    printf("\033[0;33mA\033[0;0m:\t\t\t\033[0;34m%d (%08X)\033[0;0m\n"
-           "\033[0;33mB\033[0;0m:\t\t\t\033[0;34m%d (%08X)\033[0;0m\n"
-           "\033[0;33mProgram Counter\033[0;0m:\t\033[0;34m%d (%08X)\033[0;0m\n"
-           "\033[0;33mStack Pointer\033[0;0m:\t\t\033[0;34m%d (%08X)\033[0;0m\n\n",
+    printf(YELLOW "A" NORMAL ":\t\t\t" BLUE "%d (%08X)" NORMAL "\n" YELLOW "B" NORMAL ":\t\t\t" BLUE
+                  "%d (%08X)" NORMAL "\n" YELLOW "Program Counter" NORMAL ":\t" BLUE
+                  "%d (%08X)" NORMAL "\n" YELLOW "Stack Pointer" NORMAL ":\t\t" BLUE
+                  "%d (%08X)" NORMAL "\n\n",
            registers->A, registers->A, registers->B, registers->B, registers->Program_Counter,
            registers->Program_Counter, registers->Stack_Pointer, registers->Stack_Pointer);
 }
@@ -322,7 +328,7 @@ void execute(OPTIONS *opt, REGISTERS *registers, MEMORY *memory)
                 else if (strncmp(command, "run ", 4) == 0)
                 {
                     if (!is_valid_number(command + 4))
-                        fprintf(stderr, "\033[0;31mINVALID COMMAND\033[0;0m\n");
+                        fprintf(stderr, RED "INVALID COMMAND" NORMAL "\n");
                     else
                         cmd_after_lines = strtol(command + 4, NULL, 0), exit_prompt = true;
                 }
@@ -334,7 +340,7 @@ void execute(OPTIONS *opt, REGISTERS *registers, MEMORY *memory)
                     int a = strtol(first, NULL, 0), b = strtol(second, NULL, 0);
                     if (!is_valid_number(first))
                     {
-                        fprintf(stderr, "\033[0;31mINVALID COMMAND\033[0;0m\n");
+                        fprintf(stderr, RED "INVALID COMMAND" NORMAL "\n");
                         continue;
                     }
 
@@ -346,7 +352,7 @@ void execute(OPTIONS *opt, REGISTERS *registers, MEMORY *memory)
 
                     if (!is_valid_number(second) || a > b)
                     {
-                        fprintf(stderr, "\033[0;31mINVALID COMMAND\033[0;0m\n");
+                        fprintf(stderr, RED "INVALID COMMAND" NORMAL "\n");
                         continue;
                     }
 
@@ -357,7 +363,7 @@ void execute(OPTIONS *opt, REGISTERS *registers, MEMORY *memory)
                 else if (strcmp(command, "exit") == 0)
                     HALT = true, exit_prompt = true;
                 else
-                    fprintf(stderr, "\033[0;31mINVALID COMMAND\033[0;0m\n");
+                    fprintf(stderr, RED "INVALID COMMAND" NORMAL "\n");
             }
 
             if (HALT)
@@ -382,10 +388,10 @@ void execute(OPTIONS *opt, REGISTERS *registers, MEMORY *memory)
             exit(-1);
         }
 
-        printf("MNEMONIC: \033[0;34m%s", mnemonics[oper].OPER);
+        printf("MNEMONIC: " BLUE "%s", mnemonics[oper].OPER);
         if (mnemonics[oper].has_operand)
             printf(" %d", operand);
-        printf("\033[0;0m\n");
+        printf(NORMAL "\n");
 
         switch (oper)
         {
@@ -420,8 +426,8 @@ void execute(OPTIONS *opt, REGISTERS *registers, MEMORY *memory)
              *      A := memory[SP + offset]
              */
             if (opt->read_flag)
-                printf("\033[0;35m[READ]:\033[0;0m Memory address \033[0;34m%08X\033[0;0m is being "
-                       "read.\n",
+                printf(PURPLE "[READ]:" NORMAL " Memory address " BLUE "%08X" NORMAL " is being "
+                              "read.\n",
                        registers->Stack_Pointer + operand);
 
             registers->B = registers->A;
@@ -437,8 +443,8 @@ void execute(OPTIONS *opt, REGISTERS *registers, MEMORY *memory)
              *      A := B
              */
             if (opt->write_flag)
-                printf("\033[0;35m[WRITE]:\033[0;0m Memory address \033[0;34m%08X\033[0;0m is "
-                       "being written over.\n",
+                printf(PURPLE "[WRITE]:" NORMAL " Memory address " BLUE "%08X" NORMAL " is "
+                              "being written over.\n",
                        registers->Stack_Pointer + operand);
 
             memory->raw[registers->Stack_Pointer + operand] = registers->A;
@@ -453,8 +459,8 @@ void execute(OPTIONS *opt, REGISTERS *registers, MEMORY *memory)
              *      A := memory[A + offset]
              */
             if (opt->read_flag)
-                printf("\033[0;35m[READ]:\033[0;0m Memory address \033[0;34m%08X\033[0;0m is being "
-                       "read.\n",
+                printf(PURPLE "[READ]:" NORMAL " Memory address " BLUE "%08X" NORMAL " is being "
+                              "read.\n",
                        registers->A + operand);
 
             registers->A = memory->raw[registers->A + operand];
@@ -468,8 +474,8 @@ void execute(OPTIONS *opt, REGISTERS *registers, MEMORY *memory)
              *      memory[A + offset] := B
              */
             if (opt->write_flag)
-                printf("\033[0;35m[WRITE]:\033[0;0m Memory address \033[0;34m%08X\033[0;0m is "
-                       "being written over.\n",
+                printf(PURPLE "[WRITE]:" NORMAL " Memory address " BLUE "%08X" NORMAL " is "
+                              "being written over.\n",
                        registers->A + operand);
 
             memory->raw[registers->A + operand] = registers->B;
@@ -617,7 +623,7 @@ void execute(OPTIONS *opt, REGISTERS *registers, MEMORY *memory)
              *      Halt := true
              */
             HALT = true;
-            printf("\n\033[0;32mProgram Halted!\033[0;0m\n\n");
+            printf("\n" GREEN "Program Halted!" NORMAL "\n\n");
             break;
         }
         default: {
