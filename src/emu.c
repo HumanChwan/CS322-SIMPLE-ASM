@@ -384,7 +384,7 @@ void execute(OPTIONS *opt, REGISTERS *registers, MEMORY *memory)
         /* INVALID INSTRUCTION CHECK */
         if (oper < 0 || VALID_INSTRUCTION_MNEMONIC_TYPES < oper)
         {
-            fprintf(stderr, "[ERROR]: Invalid magic number found: %08X", instruction);
+            fprintf(stderr, RED "[ERROR]:" NORMAL " Invalid magic number found: %08X", instruction);
             exit(-1);
         }
 
@@ -431,6 +431,11 @@ void execute(OPTIONS *opt, REGISTERS *registers, MEMORY *memory)
                        registers->Stack_Pointer + operand);
 
             registers->B = registers->A;
+            if (registers->Stack_Pointer + operand >= MEMORY_SIZE)
+            {
+                fprintf(stderr, RED "[ERROR]: " NORMAL "Tried to access out of range memory\n");
+                exit(-1);
+            }
             registers->A = memory->raw[registers->Stack_Pointer + operand];
             break;
         }
@@ -448,6 +453,11 @@ void execute(OPTIONS *opt, REGISTERS *registers, MEMORY *memory)
                        registers->Stack_Pointer + operand);
 
             memory->raw[registers->Stack_Pointer + operand] = registers->A;
+            if (registers->Stack_Pointer + operand >= MEMORY_SIZE)
+            {
+                fprintf(stderr, RED "[ERROR]: " NORMAL "Tried to access out of range memory\n");
+                exit(-1);
+            }
             registers->A = registers->B;
             break;
         }
@@ -463,6 +473,11 @@ void execute(OPTIONS *opt, REGISTERS *registers, MEMORY *memory)
                               "read.\n",
                        registers->A + operand);
 
+            if (registers->Stack_Pointer + operand >= MEMORY_SIZE)
+            {
+                fprintf(stderr, RED "[ERROR]: " NORMAL "Tried to access out of range memory\n");
+                exit(-1);
+            }
             registers->A = memory->raw[registers->A + operand];
             break;
         }
@@ -478,6 +493,11 @@ void execute(OPTIONS *opt, REGISTERS *registers, MEMORY *memory)
                               "being written over.\n",
                        registers->A + operand);
 
+            if (registers->Stack_Pointer + operand >= MEMORY_SIZE)
+            {
+                fprintf(stderr, RED "[ERROR]: " NORMAL "Tried to access out of range memory\n");
+                exit(-1);
+            }
             memory->raw[registers->A + operand] = registers->B;
             break;
         }
