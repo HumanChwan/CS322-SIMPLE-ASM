@@ -45,7 +45,7 @@ Program format and structure:
 1. ASSEMBLER:
     * With two data structures to store labels and mnemonic table with expected operands respectively.
     * Uses a single routine for both passes.
-    * Detects label erros.
+    * Detects label errors.
     * Consistent and sensible formatting with sensible program structure.
     * Sensible variable, function & type names with explanatory comments.
     * Advanced listing file.
@@ -140,25 +140,51 @@ Testing:
 
 2. EMULATOR:
 
-I have tested three examples shown as bellow. The errors only occurred in the file test3.o and the program immediately stopped with an error message on the screen.
+I have tested 5 examples shown as below.The others were tested without any errors detected and produced execution data both on the screen and output text file for each example according to the usage instruction.
 
-The others were tested without any errors detected and produced excution data both on the screen and output text file for each example according to the usage instruction.
+Emulator allows user to read memory and registers while executing. The following commands can be executed while the emulator is running:
+    1)  run [OPTIONAL]:
+            executes 1 line of code if no operand is provided, otherwise executes the operand number of lines. 
+    2)  exec:
+            executes the program, until HALT is found or errand code is detected.
+    3)  dump [OPTIONAL_1] [OPTIONAL_2]:
+            prints registers and memory, from OPTIONAL_1 operand to OPTIONAL_2 operand (0 operands defaults to printing instruction set amount of memory, 1 operand defaults to printing memory dump from provided operand till the amount of instruction set amount of memory).
+    4)  exit:
+        exits from executing from more. (LETS YOU HALT THE PROGRAM EXTERNALLY).
 
 After running the bin file given, the trace data are the same as the implemented result from my own program.
 
-1)
-#Input:emu -trace memcpy.asm
-#Output: memcpy.txt
+    1)
+        # execution: `./bin/emu -after -trace tests/examples/fibonacci.o`
+        # OUTPUT:
+            a. fibonacci.txt
+        # STDERR:
+            <EMPTY>
 
+    2)
+        # execution: `./bin/emu -after -trace tests/examples/sum_of_natural_num.o`
+        # OUTPUT:
+            a. sum_of_n_natural_number.txt
+        # STDERR:
+            <EMPTY>
 
-2)
-#Input: emu -trace triangle.asm
-#Output: triangle.txt
+    3)
+        # execution: `./bin/emu -after -trace tests/examples/triangle.o`
+        # OUTPUT:
+            a. triangle.txt
+        # STDERR:
+            <EMPTY>
 
+    4)
+        # execution: `./bin/emu -after -trace tests/Bubble_sort/bubble_sort.o`
+        # OUTPUT:
+            a. bubble_sort.txt
+        # STDERR:
+            <EMPTY>
 
-3)
-#Input: emu -trace test3.asm
-#Output: Fail to complete.
-with error messages shown on the screen
-
-PC=00000000, SP=08049596, A=008172D0, B=0804958C Fatal error occurred! No instruction can be found!
+    5)
+        # execution: `./bin/emu -after -trace tests/examples/binary_search.o`
+        # OUTPUT:
+            a. binary_search.txt
+        # STDERR:
+            <EMPTY>
