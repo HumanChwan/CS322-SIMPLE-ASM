@@ -61,9 +61,13 @@ main:
     adj 1                   ; readjust
     return                  ; return
 
-value: SET 983              ; Value to be searched
-n: SET 7                    ; length of array
+value: SET 91               ; Value to be searched
+n: SET 11                   ; length of array
 array: data 50              ; array
+data 67
+data 78
+data 87
+data 91
 data 100
 data 203
 data 402
