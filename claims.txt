@@ -73,7 +73,7 @@ Testing:
     1)
         # ASM-execution: ./bin/asm tests/examples/fibonacci.asm
         # OUTPUT:
-            a. fibonacci.l
+            a. fibonacci.lst
             b. fibonacci.log (without any error messages)
             c. fibonacci.o
         # STDERR:
@@ -82,7 +82,7 @@ Testing:
     2)
         # ASM-execution: `./bin/asm tests/examples/error_handling.asm`
         # OUTPUT:
-            a. error_handling.l
+            a. error_handling.lst
             b. error_handling.log
             c. error_handling.o
         # STDERR:
@@ -104,7 +104,7 @@ Testing:
     3)
         # ASM-execution: `./bin/asm tests/examples/sum_of_natural_num.asm`
         # OUTPUT:
-            a. sum_of_n_natural_number.l
+            a. sum_of_n_natural_number.lst
             b. sum_of_n_natural_number.log (without any error messages)
             c. sum_of_n_natural_number.o
         # STDERR:
@@ -113,7 +113,7 @@ Testing:
     4)
         # ASM-execution: `./bin/asm tests/examples/triangle.asm`
         # OUTPUT:
-            a. triangle.l
+            a. triangle.lst
             b. triangle.log (without any error messages)
             c. triangle.o
         # STDERR:
@@ -122,7 +122,7 @@ Testing:
     5)
         # ASM-execution: `./bin/asm tests/Bubble_sort/bubble_sort.asm`
         # OUTPUT:
-            a. bubble_sort.l
+            a. bubble_sort.lst
             b. bubble_sort.log (without any error messages)
             c. bubble_sort.o
         # STDERR:
@@ -131,7 +131,7 @@ Testing:
     6)
         # ASM-execution: `./bin/asm tests/examples/binary_search.asm`
         # OUTPUT:
-            a. binary_search.l
+            a. binary_search.lst
             b. binary_search.log (without any error messages)
             c. binary_search.o
         # STDERR:
