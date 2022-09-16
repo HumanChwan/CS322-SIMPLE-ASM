@@ -4,3 +4,5 @@ emu
 *.lst
 *.log
 *.o
+*.txt
+!claims.txt
